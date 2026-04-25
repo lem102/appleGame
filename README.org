@@ -1,0 +1,14 @@
+#+title: AppleGame
+#+author: Jacob Leeming
+
+* Abstract
+
+A game written in fennel using the LOVE2d library.
+
+* Setup
+
+Run =just setup= to install fennel and LOVE2d in Debian.
+
+* Running
+
+Run =just run= to run the game.
