@@ -5,15 +5,40 @@
 
 (local BIN_SIZE 40)
 
+(var world nil)
+
 (var (apple-x apple-y) (values 200 200))
 
 (var (bin-x bin-y) (values 600 600))
 
+(var objects [])
+
 (fn love.load []
-  (love.window.setMode 1280 720 {:resizable true :vsync true}))
+  (love.window.setMode 1280 720 {:resizable true :vsync true})
+  (love.physics.setMeter 64)
+  (set world (love.physics.newWorld 0 0 true))
+  
+  (set objects.ball {})
+  (set objects.ball.body
+       (love.physics.newBody world 500 500 "dynamic"))
+  (set objects.ball.shape
+       (love.physics.newCircleShape 20))
+  (set objects.ball.fixture
+       (love.physics.newFixture objects.ball.body objects.ball.shape 1))
+  (objects.ball.fixture:setRestitution 0.9)
+
+  (set objects.player {})
+  (set objects.player.body
+       (love.physics.newBody world 400 500 "dynamic"))
+  (set objects.player.shape
+       (love.physics.newRectangleShape 20 20))
+  (set objects.player.fixture
+       (love.physics.newFixture objects.player.body objects.player.shape 1)))
 
 (fn love.update [deltatime]
-  (when (love.keyboard.isDown "d") 
+  (world:update deltatime)
+  
+  (when (love.keyboard.isDown "d")
     (set x (+ x (* PLAYER_SPEED deltatime))))
 
   (when (love.keyboard.isDown "a")
@@ -23,7 +48,17 @@
     (set y (+ y (* PLAYER_SPEED deltatime))))
 
   (when (love.keyboard.isDown "w")
-    (set y (- y (* PLAYER_SPEED deltatime)))))
+    (set y (- y (* PLAYER_SPEED deltatime))))
+
+  (let [vx (if (love.keyboard.isDown "d")
+               PLAYER_SPEED
+               0)]
+    (when (love.keyboard.isDown "d")
+      (set y (- y (* PLAYER_SPEED deltatime)))
+      (objects.player.body:setLinearVelocity vx 0)))
+  
+
+  )
 
 (macro with-colour [r g b ...]
   `(do
@@ -49,6 +84,13 @@
       (love.graphics.rectangle "fill" (- x offset) (- y offset) PLAYER_SIZE PLAYER_SIZE))))
 
 (fn love.draw []
+  (love.graphics.circle "fill"
+                        (objects.ball.body:getX)
+                        (objects.ball.body:getY)
+                        (objects.ball.shape:getRadius))
+  (love.graphics.polygon "fill"
+                         (objects.player.body:getWorldPoints
+                          (objects.player.shape:getPoints)))
   (love.graphics.setColor 1 1 1)
   (love.graphics.print "Hello from Fennel!\nPress any key to quit" 10 10)
   (draw-bin)
@@ -73,4 +115,3 @@
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
-
