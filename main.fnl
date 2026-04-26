@@ -10,33 +10,37 @@
 
 (var objects [])
 
+(lambda player-create []
+  "Create the player."
+  (let [body (love.physics.newBody world 400 500 "dynamic")
+        shape (love.physics.newRectangleShape PLAYER_SIZE PLAYER_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (body:setFixedRotation true)
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {: body
+     : shape
+     : fixture}))
+
+(lambda ball-create []
+  "Create the ball."
+  (let [body (love.physics.newBody world 500 500 "dynamic")
+        shape (love.physics.newCircleShape 10)
+        fixture (love.physics.newFixture body shape 1)]
+    (body:setLinearDamping 1)
+    (fixture:setRestitution 0.9)
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {: body
+     : shape
+     : fixture}))
+
 (fn love.load []
   (love.window.setMode 1280 720 {:resizable true :vsync true})
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
-  
-  (set objects.ball {})
-  (set objects.ball.body
-       (love.physics.newBody world 500 500 "dynamic"))
-  (set objects.ball.shape
-       (love.physics.newCircleShape 10))
-  (set objects.ball.fixture
-       (love.physics.newFixture objects.ball.body objects.ball.shape 1))
-  (objects.ball.fixture:setRestitution 0.9)
-  (objects.ball.body:setLinearDamping 1)
-  (objects.ball.fixture:setCategory 1)
-  (objects.ball.fixture:setMask)
-
-  (set objects.player {})
-  (set objects.player.body
-       (love.physics.newBody world 400 500 "dynamic"))
-  (objects.player.body:setFixedRotation true)
-  (set objects.player.shape
-       (love.physics.newRectangleShape PLAYER_SIZE PLAYER_SIZE))
-  (set objects.player.fixture
-       (love.physics.newFixture objects.player.body objects.player.shape 1))
-  (objects.player.fixture:setCategory 1)
-  (objects.player.fixture:setMask))
+  (set objects.ball (ball-create))
+  (set objects.player (player-create)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
