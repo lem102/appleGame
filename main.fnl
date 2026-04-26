@@ -1,4 +1,3 @@
-(var (x y) (values 100 100))
 (var picked-up false)
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
@@ -6,8 +5,6 @@
 (local BIN_SIZE 40)
 
 (var world nil)
-
-(var (apple-x apple-y) (values 200 200))
 
 (var (bin-x bin-y) (values 600 600))
 
@@ -26,6 +23,9 @@
   (set objects.ball.fixture
        (love.physics.newFixture objects.ball.body objects.ball.shape 1))
   (objects.ball.fixture:setRestitution 0.9)
+  (objects.ball.body:setLinearDamping 1)
+  (objects.ball.fixture:setCategory 1)
+  (objects.ball.fixture:setMask)
 
   (set objects.player {})
   (set objects.player.body
@@ -34,10 +34,17 @@
   (set objects.player.shape
        (love.physics.newRectangleShape PLAYER_SIZE PLAYER_SIZE))
   (set objects.player.fixture
-       (love.physics.newFixture objects.player.body objects.player.shape 1)))
+       (love.physics.newFixture objects.player.body objects.player.shape 1))
+  (objects.player.fixture:setCategory 1)
+  (objects.player.fixture:setMask))
 
 (fn love.update [deltatime]
   (world:update deltatime)
+
+  (when picked-up
+    (objects.ball.body:setLinearVelocity 0 0)
+    (objects.ball.body:setX (objects.player.body:getX))
+    (objects.ball.body:setY (objects.player.body:getY)))
 
   (let [vx (if (love.keyboard.isDown "a")
                (- PLAYER_SPEED)
@@ -72,7 +79,7 @@
   (with-colour 0 0 1
     (love.graphics.rectangle "fill" bin-x bin-y BIN_SIZE BIN_SIZE)))
 
-(fn draw-player [x y]
+(fn draw-player []
   (with-colour 0 1 0
     (let [offset (/ PLAYER_SIZE 2)]
       (love.graphics.polygon "fill"
@@ -80,28 +87,30 @@
                           (objects.player.shape:getPoints))))))
 
 (fn love.draw []
-  
   (love.graphics.setColor 1 1 1)
   (love.graphics.print "Hello from Fennel!\nPress any key to quit" 10 10)
   (draw-bin)
-  (draw-player x y)
+  (draw-player)
   (if picked-up
-      (draw-apple x y)
-      (draw-apple apple-x apple-y)))
+      (draw-apple (objects.player.body:getX) (objects.player.body:getY))
+      (draw-apple (objects.ball.body:getX) (objects.ball.body:getY))))
 
 (fn can-pick-up []
-  (and (<= (math.abs (- x apple-x)) 30)
-       (<= (math.abs (- y apple-y)) 30)))
+  (and (<= (math.abs (- (objects.player.body:getX) (objects.ball.body:getX))) 50)
+       (<= (math.abs (- (objects.player.body:getY) (objects.ball.body:getY))) 50)))
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
     (if (and (can-pick-up) (not picked-up))
-        (set picked-up true)
+        (do
+          (set picked-up true)
+          (objects.player.fixture:setMask 1))
         picked-up
         (do
           (set picked-up false)
-          (set apple-x x)
-          (set apple-y y))))
+          (objects.player.fixture:setMask)
+          (objects.ball.body:setX (objects.player.body:getX))
+          (objects.ball.body:setY (objects.player.body:getY)))))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
