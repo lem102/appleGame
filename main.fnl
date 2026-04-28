@@ -9,7 +9,7 @@
 
 (var player nil)
 
-(local objects [])
+(local apples [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -50,11 +50,6 @@
                           (apple.body:getY)
                           (apple.shape:getRadius))))
 
-(lambda apple-update [apple]
-  (when apple.is-carried
-    (apple.body:setX (player.body:getX))
-    (apple.body:setY (player.body:getY))))
-
 (lambda player-draw [player]
   (with-colour 0 1 0
     (love.graphics.polygon "fill" (player.body:getWorldPoints (player.shape:getPoints)))
@@ -90,21 +85,23 @@
      : fixture
      :is-carried false}))
 
+(lambda apple-update [apple]
+  (when apple.is-carried
+    (apple.body:setX (player.body:getX))
+    (apple.body:setY (player.body:getY))))
+
 (fn love.load []
   (love.window.setMode 1280 720 {:resizable true :vsync true})
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
-  (let [new-player (player-create)]
-    (table.insert objects new-player)
-    (set player new-player))
-  (let [new-apple (apple-create)]
-    (table.insert objects new-apple)))
+  (set player (player-create))
+  (table.insert apples (apple-create)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
   (player-update player)
-  (when (. objects 2)
-    (apple-update (. objects 2))))
+  (each [_ apple (ipairs apples)]
+    (apple-update apple)))
 
 (fn draw-box []
   (with-colour 0 0 1
@@ -114,12 +111,30 @@
   (love.graphics.setColor 1 1 1)
   (draw-box)
   (player-draw player)
-  (when (. objects 2)
-    (apple-draw (. objects 2))))
+  (each [_ apple (ipairs apples)]
+    (apple-draw apple)))
+
+(lambda distance [x1 y1 x2 y2]
+  (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
+
+(lambda apple-closest-to-player [player apples]
+  "Return the apple closest to the player."
+  (let [distances (icollect [index apple (ipairs apples)]
+                    {: index
+                     :distance (distance (player.body:getX) (player.body:getY) 
+                                         (apple.body:getX) (apple.body:getY))})
+        smallest-distance (do
+                            (table.sort distances
+                                        (lambda [a b]
+                                          (< a.distance b.distance)))
+                            (. distances 1))
+        closest-apple-index smallest-distance.index]
+    (. apples closest-apple-index)))
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
-    (player-pick-or-drop player (. objects 2)))
+    (player-pick-or-drop player
+                         (apple-closest-to-player player apples)))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
