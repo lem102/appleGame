@@ -5,11 +5,11 @@
 
 (var world nil)
 
-(var (box-x box-y) (values 600 600))
+(local (box-x box-y) (values 600 600))
 
 (var player nil)
 
-(var objects [])
+(local objects [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -28,19 +28,20 @@
     {: body
      : shape
      : fixture
-     :carrying nil
-     :update (lambda []
-               (let [vx (if (love.keyboard.isDown "a")
-                            (- PLAYER_SPEED)
-                            (love.keyboard.isDown "d")
-                            PLAYER_SPEED
-                            0)
-                     vy (if (love.keyboard.isDown "w")
-                            (- PLAYER_SPEED)
-                            (love.keyboard.isDown "s")
-                            PLAYER_SPEED
-                            0)]
-                 (body:setLinearVelocity vx vy)))}))
+     :carrying nil}))
+
+(lambda player-update [player]
+  (let [vx (if (love.keyboard.isDown "a")
+               (- PLAYER_SPEED)
+               (love.keyboard.isDown "d")
+               PLAYER_SPEED
+               0)
+        vy (if (love.keyboard.isDown "w")
+               (- PLAYER_SPEED)
+               (love.keyboard.isDown "s")
+               PLAYER_SPEED
+               0)]
+    (player.body:setLinearVelocity vx vy)))
 
 (lambda apple-draw [apple]
   (with-colour 1 0 0
@@ -49,20 +50,31 @@
                           (apple.body:getY)
                           (apple.shape:getRadius))))
 
+(lambda apple-update [apple]
+  (when apple.is-carried
+    (apple.body:setX (player.body:getX))
+    (apple.body:setY (player.body:getY))))
+
 (lambda player-draw [player]
   (with-colour 0 1 0
     (love.graphics.polygon "fill" (player.body:getWorldPoints (player.shape:getPoints)))
     (when player.carrying
       (apple-draw player.carrying))))
 
-(lambda player-pick-or-drop [player ?apple]
+(lambda player-pick-or-drop [player apple]
   (if (and (not player.carrying)
-           ?apple
-           (<= (math.abs (- (player.body:getX) (?apple.body:getX))) 50)
-           (<= (math.abs (- (player.body:getY) (?apple.body:getY))) 50))
-      (set player.carrying ?apple)
+           apple
+           (<= (math.abs (- (player.body:getX) (apple.body:getX))) 50)
+           (<= (math.abs (- (player.body:getY) (apple.body:getY))) 50))
+      (do
+        (set player.carrying apple)
+        (set apple.is-carried true)
+        (apple.fixture:setMask 1))
       player.carrying
-      (table.remove objects 2)))
+      (do
+        (set player.carrying nil)
+        (set apple.is-carried false)
+        (apple.fixture:setMask))))
 
 (lambda apple-create []
   "Create the apple."
@@ -75,9 +87,8 @@
     (fixture:setMask)
     {: body
      : shape
-     : fixture}))
-
-
+     : fixture
+     :is-carried false}))
 
 (fn love.load []
   (love.window.setMode 1280 720 {:resizable true :vsync true})
@@ -91,10 +102,9 @@
 
 (fn love.update [deltatime]
   (world:update deltatime)
-
-  (each [key value (pairs objects)]
-    (when value.update
-      (value:update))))
+  (player-update player)
+  (when (. objects 2)
+    (apple-update (. objects 2))))
 
 (fn draw-box []
   (with-colour 0 0 1
@@ -102,7 +112,6 @@
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
-  (love.graphics.print "Hello from Fennel!\nPress any key to quit" 10 10)
   (draw-box)
   (player-draw player)
   (when (. objects 2)
