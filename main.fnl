@@ -3,6 +3,8 @@
 
 (local BOX_SIZE 40)
 
+(local PLAYER_GRAB_DISTANCE 50)
+
 (var world nil)
 
 (local (box-x box-y) (values 600 600))
@@ -52,24 +54,67 @@
 
 (lambda player-draw [player]
   (with-colour 0 1 0
-    (love.graphics.polygon "fill" (player.body:getWorldPoints (player.shape:getPoints)))
-    (when player.carrying
-      (apple-draw player.carrying))))
+    (love.graphics.polygon "fill"
+                           (player.body:getWorldPoints (player.shape:getPoints)))))
 
-(lambda player-pick-or-drop [player apple]
-  (if (and (not player.carrying)
-           apple
-           (<= (math.abs (- (player.body:getX) (apple.body:getX))) 50)
-           (<= (math.abs (- (player.body:getY) (apple.body:getY))) 50))
+;; TODO: a function that can determine what a player will pick up.
+
+(lambda distance [x1 y1 x2 y2]
+  "Find the distance between two points in 2d space."
+  (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
+
+(lambda player-what-grab [player apples]
+  "Return the thing that PLAYER can grab.
+
+Return nil if PLAYER cannot grab anything."
+  (local apple-distances
+         (icollect [_ apple (ipairs apples)]
+           {: apple
+            :distance (distance (player.body:getX) (player.body:getY)
+                                (apple.body:getX) (apple.body:getY))}))
+
+  (each [index distance (ipairs apple-distances)]
+    (when (> distance.distance PLAYER_GRAB_DISTANCE)
+      (table.remove apple-distances index)))
+
+  (if (= 0 (length apple-distances))
+      nil
       (do
-        (set player.carrying apple)
-        (set apple.is-carried true)
-        (apple.fixture:setMask 1))
-      player.carrying
-      (do
-        (set player.carrying nil)
-        (set apple.is-carried false)
-        (apple.fixture:setMask))))
+        (table.sort apple-distances
+                    (lambda [a b]
+                      (< a.distance b.distance)))
+
+        (local smallest-distance (. apple-distances 1))
+        smallest-distance.apple)))
+
+(lambda player-handle-grab [player apple]
+  "Handle PLAYER grabbing APPLE."
+  (set player.carrying apple))
+
+(lambda apple-handle-grabbed [apple]
+  "Handle APPLE being grabbed."
+  (set apple.is-carried true)
+  (apple.fixture:setMask 1))
+
+(lambda player-grab [player apples]
+  "As PLAYER, try to grab an apple from APPLES."
+  (let [apple (player-what-grab player apples)]
+    (when apple
+      (player-handle-grab player apple)
+      (apple-handle-grabbed apple))))
+
+(lambda player-drop [player]
+  "As PLAYER, drop the currently held apple."
+  (let [apple player.carrying]
+    (apple.fixture:setMask)
+    (set player.carrying nil)
+    (set apple.is-carried false)))
+
+(lambda player-grab-or-drop [player apples]
+  "As PLAYER, grab or drop an apple."
+  (if player.carrying
+      (player-drop player)
+      (player-grab player apples)))
 
 (lambda apple-create []
   "Create the apple."
@@ -114,27 +159,9 @@
   (each [_ apple (ipairs apples)]
     (apple-draw apple)))
 
-(lambda distance [x1 y1 x2 y2]
-  (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
-
-(lambda apple-closest-to-player [player apples]
-  "Return the apple closest to the player."
-  (let [distances (icollect [index apple (ipairs apples)]
-                    {: index
-                     :distance (distance (player.body:getX) (player.body:getY) 
-                                         (apple.body:getX) (apple.body:getY))})
-        smallest-distance (do
-                            (table.sort distances
-                                        (lambda [a b]
-                                          (< a.distance b.distance)))
-                            (. distances 1))
-        closest-apple-index smallest-distance.index]
-    (. apples closest-apple-index)))
-
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
-    (player-pick-or-drop player
-                         (apple-closest-to-player player apples)))
+    (player-grab-or-drop player apples))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
