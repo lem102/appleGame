@@ -3,7 +3,7 @@
 
 (local BOX_SIZE 40)
 
-(local PLAYER_GRAB_DISTANCE 50)
+(local PLAYER_GRAB_DISTANCE 100)
 
 (var world nil)
 
@@ -57,8 +57,6 @@
     (love.graphics.polygon "fill"
                            (player.body:getWorldPoints (player.shape:getPoints)))))
 
-;; TODO: a function that can determine what a player will pick up.
-
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
   (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
@@ -69,21 +67,19 @@
 Return nil if PLAYER cannot grab anything."
   (local apple-distances
          (icollect [_ apple (ipairs apples)]
-           {: apple
-            :distance (distance (player.body:getX) (player.body:getY)
-                                (apple.body:getX) (apple.body:getY))}))
+           (let [distance (distance (player.body:getX) (player.body:getY)
+                                    (apple.body:getX) (apple.body:getY))]
+             (when (<= distance PLAYER_GRAB_DISTANCE)
+               {: apple
+                : distance}))))
 
-  (each [index distance (ipairs apple-distances)]
-    (when (> distance.distance PLAYER_GRAB_DISTANCE)
-      (table.remove apple-distances index)))
+  (table.sort apple-distances
+              (lambda [a b]
+                (< a.distance b.distance)))
 
   (if (= 0 (length apple-distances))
       nil
       (do
-        (table.sort apple-distances
-                    (lambda [a b]
-                      (< a.distance b.distance)))
-
         (local smallest-distance (. apple-distances 1))
         smallest-distance.apple)))
 
@@ -116,9 +112,9 @@ Return nil if PLAYER cannot grab anything."
       (player-drop player)
       (player-grab player apples)))
 
-(lambda apple-create []
+(lambda apple-create [x y]
   "Create the apple."
-  (let [body (love.physics.newBody world 500 500 "dynamic")
+  (let [body (love.physics.newBody world x y "dynamic")
         shape (love.physics.newCircleShape 10)
         fixture (love.physics.newFixture body shape 1)]
     (body:setLinearDamping 1)
@@ -140,7 +136,8 @@ Return nil if PLAYER cannot grab anything."
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
   (set player (player-create))
-  (table.insert apples (apple-create)))
+  (table.insert apples (apple-create 500 100))
+  (table.insert apples (apple-create 100 500)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
