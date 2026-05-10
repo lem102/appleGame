@@ -7,11 +7,10 @@
 
 (var world nil)
 
-(local (box-x box-y) (values 600 600))
-
 (var player nil)
 
 (local apples [])
+(local boxes [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -128,13 +127,30 @@ Return nil if PLAYER cannot grab anything."
     (apple.body:setX (player.body:getX))
     (apple.body:setY (player.body:getY))))
 
+(lambda box-create [x y]
+  "Create a box."
+  (let [body (love.physics.newBody world x y "static")
+        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {: body
+     : shape
+     : fixture}))
+
+(lambda box-draw [box]
+  (with-colour 0 0 1
+    (love.graphics.polygon "fill"
+                           (box.body:getWorldPoints (box.shape:getPoints)))))
+
 (fn love.load []
   (love.window.setMode 1280 720 {:resizable true :vsync true})
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
   (set player (player-create))
   (table.insert apples (apple-create 500 100))
-  (table.insert apples (apple-create 100 500)))
+  (table.insert apples (apple-create 100 500))
+  (table.insert boxes (box-create 600 600)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
@@ -142,16 +158,13 @@ Return nil if PLAYER cannot grab anything."
   (each [_ apple (ipairs apples)]
     (apple-update apple)))
 
-(fn draw-box []
-  (with-colour 0 0 1
-    (love.graphics.rectangle "fill" box-x box-y BOX_SIZE BOX_SIZE)))
-
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
-  (draw-box)
   (player-draw player)
   (each [_ apple (ipairs apples)]
-    (apple-draw apple)))
+    (apple-draw apple))
+  (each [_ box (ipairs boxes)]
+    (box-draw box)))
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
