@@ -65,23 +65,20 @@
   "Return the thing that PLAYER can grab.
 
 Return nil if PLAYER cannot grab anything."
-  (local apple-distances
-         (icollect [_ apple (ipairs apples)]
-           (let [distance (distance (player.body:getX) (player.body:getY)
-                                    (apple.body:getX) (apple.body:getY))]
-             (when (<= distance PLAYER_GRAB_DISTANCE)
-               {: apple
-                : distance}))))
+  (let [apple-distances
+        (icollect [_ apple (ipairs apples)]
+          (let [distance (distance (player.body:getX) (player.body:getY)
+                                   (apple.body:getX) (apple.body:getY))]
+            (when (<= distance PLAYER_GRAB_DISTANCE)
+              {: apple
+               : distance})))]
 
-  (table.sort apple-distances
-              (lambda [a b]
-                (< a.distance b.distance)))
+    (table.sort apple-distances
+                (lambda [a b]
+                  (< a.distance b.distance)))
 
-  (if (= 0 (length apple-distances))
-      nil
-      (do
-        (local smallest-distance (. apple-distances 1))
-        smallest-distance.apple)))
+    (when (> (length apple-distances) 0)
+      (. (. apple-distances 1) "apple"))))
 
 (lambda player-handle-grab [player apple]
   "Handle PLAYER grabbing APPLE."
