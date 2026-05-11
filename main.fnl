@@ -60,10 +60,11 @@
   "Find the distance between two points in 2d space."
   (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
 
-(lambda player-what-grab [player apples]
+(lambda player-what-grab [player apples boxes]
   "Return the thing that PLAYER can grab.
 
 Return nil if PLAYER cannot grab anything."
+  ;; TODO: also handle boxes
   (let [apple-distances
         (icollect [_ apple (ipairs apples)]
           (let [distance (distance (player.body:getX) (player.body:getY)
@@ -88,9 +89,9 @@ Return nil if PLAYER cannot grab anything."
   (set apple.is-carried true)
   (apple.fixture:setMask 1))
 
-(lambda player-grab [player apples]
-  "As PLAYER, try to grab an apple from APPLES."
-  (let [apple (player-what-grab player apples)]
+(lambda player-grab [player apples boxes]
+  "As PLAYER, try to grab an apple from APPLES or take one from BOXES."
+  (let [apple (player-what-grab player apples boxes)]
     (when apple
       (player-handle-grab player apple)
       (apple-handle-grabbed apple))))
@@ -106,7 +107,7 @@ Return nil if PLAYER cannot grab anything."
   "As PLAYER, grab or drop an apple."
   (if player.carrying
       (player-drop player)
-      (player-grab player apples)))
+      (player-grab player apples boxes)))
 
 (lambda apple-create [x y]
   "Create the apple."
