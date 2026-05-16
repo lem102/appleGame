@@ -26,7 +26,8 @@
     (body:setFixedRotation true)
     (fixture:setCategory 1)
     (fixture:setMask)
-    {: body
+    {:type "player"
+     : body
      : shape
      : fixture
      :carrying nil}))
@@ -60,25 +61,25 @@
   "Find the distance between two points in 2d space."
   (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
 
-(lambda player-what-grab [player apples boxes]
+(lambda player-what-grab [player things]
   "Return the thing that PLAYER can grab.
 
 Return nil if PLAYER cannot grab anything."
   ;; TODO: also handle boxes
-  (let [apple-distances
-        (icollect [_ apple (ipairs apples)]
+  (let [thing-distances
+        (icollect [_ thing (ipairs things)]
           (let [distance (distance (player.body:getX) (player.body:getY)
-                                   (apple.body:getX) (apple.body:getY))]
+                                   (thing.body:getX) (thing.body:getY))]
             (when (<= distance PLAYER_GRAB_DISTANCE)
-              {: apple
+              {: thing
                : distance})))]
 
-    (table.sort apple-distances
+    (table.sort thing-distances
                 (lambda [a b]
                   (< a.distance b.distance)))
 
-    (when (> (length apple-distances) 0)
-      (. (. apple-distances 1) "apple"))))
+    (when (> (length thing-distances) 0)
+      (. (. thing-distances 1) "thing"))))
 
 (lambda player-handle-grab [player apple]
   "Handle PLAYER grabbing APPLE."
@@ -89,25 +90,9 @@ Return nil if PLAYER cannot grab anything."
   (set apple.is-carried true)
   (apple.fixture:setMask 1))
 
-(lambda player-grab [player apples boxes]
-  "As PLAYER, try to grab an apple from APPLES or take one from BOXES."
-  (let [apple (player-what-grab player apples boxes)]
-    (when apple
-      (player-handle-grab player apple)
-      (apple-handle-grabbed apple))))
-
-(lambda player-drop [player]
-  "As PLAYER, drop the currently held apple."
-  (let [apple player.carrying]
-    (apple.fixture:setMask)
-    (set player.carrying nil)
-    (set apple.is-carried false)))
-
-(lambda player-grab-or-drop [player apples]
-  "As PLAYER, grab or drop an apple."
-  (if player.carrying
-      (player-drop player)
-      (player-grab player apples boxes)))
+(lambda apple-p [thing]
+  "Return non-nil if THING is an apple."
+  (= thing.type "apple"))
 
 (lambda apple-create [x y]
   "Create the apple."
@@ -118,10 +103,41 @@ Return nil if PLAYER cannot grab anything."
     (fixture:setRestitution 0.9)
     (fixture:setCategory 1)
     (fixture:setMask)
-    {: body
+    {:type "apple"
+     : body
      : shape
      : fixture
      :is-carried false}))
+
+(lambda box-p [thing]
+  "Return non-nil if THING is an box."
+  (= thing.type "box"))
+
+(lambda player-grab [player things]
+  "As PLAYER, try to grab one of THINGS."
+  (let [thing (player-what-grab player things)]
+    (when thing
+      (when (apple-p thing)
+        (player-handle-grab player thing)
+        (apple-handle-grabbed thing))
+      (when (box-p thing)
+        (let [apple (apple-create 0 0)]
+          (table.insert apples apple)
+          (player-handle-grab player apple)
+          (apple-handle-grabbed apple))))))
+
+(lambda player-drop [player]
+  "As PLAYER, drop the currently held apple."
+  (let [apple player.carrying]
+    (apple.fixture:setMask)
+    (set player.carrying nil)
+    (set apple.is-carried false)))
+
+(lambda player-grab-or-drop [player things]
+  "As PLAYER, grab or drop an apple."
+  (if player.carrying
+      (player-drop player)
+      (player-grab player things)))
 
 (lambda apple-update [apple]
   (when apple.is-carried
@@ -135,7 +151,8 @@ Return nil if PLAYER cannot grab anything."
         fixture (love.physics.newFixture body shape 1)]
     (fixture:setCategory 1)
     (fixture:setMask)
-    {: body
+    {:type "box"
+     : body
      : shape
      : fixture}))
 
@@ -169,7 +186,12 @@ Return nil if PLAYER cannot grab anything."
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
-    (player-grab-or-drop player apples))
+    (let [things []]
+      (each [_key apple (ipairs apples)]
+        (table.insert things apple))
+      (each [_key box (ipairs boxes)]
+        (table.insert things box))
+      (player-grab-or-drop player things)))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
