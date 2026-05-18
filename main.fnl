@@ -2,6 +2,7 @@
 (local PLAYER_SIZE 50)
 
 (local BOX_SIZE 40)
+(local BIN_SIZE 40)
 
 (local PLAYER_GRAB_DISTANCE 100)
 
@@ -11,6 +12,7 @@
 
 (local apples [])
 (local boxes [])
+(local bins [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -156,10 +158,27 @@ Return nil if PLAYER cannot grab anything."
      : shape
      : fixture}))
 
+(lambda bin-create [x y]
+  "Create a bin."
+  (let [body (love.physics.newBody world x y "static")
+        shape (love.physics.newRectangleShape BIN_SIZE BIN_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "bin"
+     : body
+     : shape
+     : fixture}))
+
 (lambda box-draw [box]
   (with-colour 0 0 1
     (love.graphics.polygon "fill"
                            (box.body:getWorldPoints (box.shape:getPoints)))))
+
+(lambda bin-draw [bin]
+  (with-colour 1 0 1
+    (love.graphics.polygon "fill"
+                           (bin.body:getWorldPoints (bin.shape:getPoints)))))
 
 (fn love.load []
   (love.window.setMode 1280 720 {:resizable true :vsync true})
@@ -168,7 +187,8 @@ Return nil if PLAYER cannot grab anything."
   (set player (player-create))
   (table.insert apples (apple-create 500 100))
   (table.insert apples (apple-create 100 500))
-  (table.insert boxes (box-create 600 600)))
+  (table.insert boxes (box-create 600 600))
+  (table.insert bins (bin-create 900 600)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
@@ -182,7 +202,9 @@ Return nil if PLAYER cannot grab anything."
   (each [_ apple (ipairs apples)]
     (apple-draw apple))
   (each [_ box (ipairs boxes)]
-    (box-draw box)))
+    (box-draw box))
+  (each [_ bin (ipairs bins)]
+    (bin-draw bin)))
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
@@ -191,6 +213,8 @@ Return nil if PLAYER cannot grab anything."
         (table.insert things apple))
       (each [_key box (ipairs boxes)]
         (table.insert things box))
+      (each [_key bin (ipairs bins)]
+        (table.insert things bin))
       (player-grab-or-drop player things)))
 
   (when (love.keyboard.isDown "escape")
