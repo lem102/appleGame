@@ -77,10 +77,9 @@
   "Return the thing that PLAYER can grab.
 
 Return nil if PLAYER cannot grab anything."
-  ;; TODO: also handle boxes
   (let [thing-distances
         (icollect [_ thing (ipairs things)]
-          (let [distance (distance (player.body:getX) (player.body:getY)
+          (let [distance (distance player.reticle-x player.reticle-y
                                    (thing.body:getX) (thing.body:getY))]
             (when (<= distance PLAYER_GRAB_DISTANCE)
               {: thing
@@ -143,6 +142,8 @@ Return nil if PLAYER cannot grab anything."
   (let [apple player.carrying]
     (apple.fixture:setMask)
     (set player.carrying nil)
+    (apple.body:setX player.reticle-x)
+    (apple.body:setY player.reticle-y)
     (set apple.is-carried false)))
 
 (lambda player-grab-or-drop [player things]
