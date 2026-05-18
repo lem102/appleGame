@@ -32,6 +32,8 @@
      : body
      : shape
      : fixture
+     :reticle-x 0
+     :reticle-y 0
      :carrying nil}))
 
 (lambda player-update [player]
@@ -45,7 +47,11 @@
                (love.keyboard.isDown "s")
                PLAYER_SPEED
                0)]
-    (player.body:setLinearVelocity vx vy)))
+    (player.body:setLinearVelocity vx vy)
+    (when (not (and (= 0 vx)
+                    (= 0 vy)))
+      (set player.reticle-x (+ (player.body:getX) vx))
+      (set player.reticle-y (+ (player.body:getY) vy)))))
 
 (lambda apple-draw [apple]
   (with-colour 1 0 0
@@ -57,7 +63,11 @@
 (lambda player-draw [player]
   (with-colour 0 1 0
     (love.graphics.polygon "fill"
-                           (player.body:getWorldPoints (player.shape:getPoints)))))
+                           (player.body:getWorldPoints (player.shape:getPoints)))
+    (love.graphics.circle "fill"
+                          player.reticle-x
+                          player.reticle-y
+                          5)))
 
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
