@@ -6,10 +6,9 @@
 
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
+(local PLAYER_GRAB_DISTANCE 100)
 
 (local BOX_SIZE 40)
-
-(local PLAYER_GRAB_DISTANCE 100)
 
 (var world nil)
 
@@ -140,19 +139,23 @@ Return nil if PLAYER cannot grab anything."
           (player-handle-grab player apple)
           (apple-handle-grabbed apple))))))
 
-(lambda player-drop [player]
+(lambda player-drop [player things]
   "As PLAYER, drop the currently held thing."
-  (let [thing player.carrying]
+  (let [thing player.carrying
+        looking-at (player-what-grab player things)]
     (thing.fixture:setMask)
     (set player.carrying nil)
     (thing.body:setX player.reticle-x)
     (thing.body:setY player.reticle-y)
-    (set thing.is-carried false)))
+    (set thing.is-carried false)
+    (if (bin-p looking-at)
+        ;; TODO: remove apple from things
+        )))
 
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
   (if player.carrying
-      (player-drop player)
+      (player-drop player things)
       (player-grab player things)))
 
 (lambda apple-update [apple]
