@@ -1,8 +1,13 @@
+
+;; TODO: counter that apples can be placed on
+;; TODO: bin that apples can be dropped into
+
+;; bin is easier, so let's start with that
+
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 
 (local BOX_SIZE 40)
-(local BIN_SIZE 40)
 
 (local PLAYER_GRAB_DISTANCE 100)
 
@@ -10,9 +15,7 @@
 
 (var player nil)
 
-(local apples [])
-(local boxes [])
-(local bins [])
+(local things [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -133,18 +136,18 @@ Return nil if PLAYER cannot grab anything."
         (apple-handle-grabbed thing))
       (when (box-p thing)
         (let [apple (apple-create 0 0)]
-          (table.insert apples apple)
+          (table.insert things apple)
           (player-handle-grab player apple)
           (apple-handle-grabbed apple))))))
 
 (lambda player-drop [player]
-  "As PLAYER, drop the currently held apple."
-  (let [apple player.carrying]
-    (apple.fixture:setMask)
+  "As PLAYER, drop the currently held thing."
+  (let [thing player.carrying]
+    (thing.fixture:setMask)
     (set player.carrying nil)
-    (apple.body:setX player.reticle-x)
-    (apple.body:setY player.reticle-y)
-    (set apple.is-carried false)))
+    (thing.body:setX player.reticle-x)
+    (thing.body:setY player.reticle-y)
+    (set thing.is-carried false)))
 
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
@@ -172,7 +175,7 @@ Return nil if PLAYER cannot grab anything."
 (lambda bin-create [x y]
   "Create a bin."
   (let [body (love.physics.newBody world x y "static")
-        shape (love.physics.newRectangleShape BIN_SIZE BIN_SIZE)
+        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
         fixture (love.physics.newFixture body shape 1)]
     (fixture:setCategory 1)
     (fixture:setMask)
@@ -180,6 +183,10 @@ Return nil if PLAYER cannot grab anything."
      : body
      : shape
      : fixture}))
+
+(lambda bin-p [thing]
+  "Return t if THING is a bin."
+  (= "bin" thing.type))
 
 (lambda box-draw [box]
   (with-colour 0 0 1
@@ -196,37 +203,40 @@ Return nil if PLAYER cannot grab anything."
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
   (set player (player-create))
-  (table.insert apples (apple-create 500 100))
-  (table.insert apples (apple-create 100 500))
-  (table.insert boxes (box-create 600 600))
-  (table.insert bins (bin-create 900 600)))
+  (table.insert things (apple-create 500 100))
+  (table.insert things (apple-create 100 500))
+  (table.insert things (box-create 600 600))
+  (table.insert things (bin-create 900 100)))
+
+(lambda thing-update [thing]
+  "Update THING."
+  (if (apple-p thing)
+      (apple-update thing)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
   (player-update player)
-  (each [_ apple (ipairs apples)]
-    (apple-update apple)))
+  (each [_ thing (ipairs things)]
+    (thing-update thing)))
+
+(lambda thing-draw [thing]
+  "Draw THING."
+  (if (apple-p thing)
+      (apple-draw thing)
+      (box-p thing)
+      (box-draw thing)
+      (bin-p thing)
+      (bin-draw thing)))
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
   (player-draw player)
-  (each [_ apple (ipairs apples)]
-    (apple-draw apple))
-  (each [_ box (ipairs boxes)]
-    (box-draw box))
-  (each [_ bin (ipairs bins)]
-    (bin-draw bin)))
+  (each [_ thing (ipairs things)]
+    (thing-draw thing)))
 
 (fn love.keypressed [key _scancode _repeat]
   (when (= key "space")
-    (let [things []]
-      (each [_key apple (ipairs apples)]
-        (table.insert things apple))
-      (each [_key box (ipairs boxes)]
-        (table.insert things box))
-      (each [_key bin (ipairs bins)]
-        (table.insert things bin))
-      (player-grab-or-drop player things)))
+    (player-grab-or-drop player things))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
