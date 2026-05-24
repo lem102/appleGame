@@ -1,8 +1,4 @@
-
 ;; TODO: counter that apples can be placed on
-;; TODO: bin that apples can be dropped into
-
-;; bin is easier, so let's start with that
 
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
@@ -14,7 +10,7 @@
 
 (var player nil)
 
-(local things [])
+(var things [])
 
 (macro with-colour [r g b ...]
   `(do
@@ -55,11 +51,15 @@
       (set player.reticle-x (+ (player.body:getX) vx))
       (set player.reticle-y (+ (player.body:getY) vy)))))
 
-(lambda apple-draw [apple]
+(lambda apple-draw [apple ?x ?y]
   (with-colour 1 0 0
     (love.graphics.circle "fill"
-                          (apple.body:getX)
-                          (apple.body:getY)
+                          (if ?x
+                              ?x
+                              (apple.body:getX))
+                          (if ?y
+                              ?y
+                              (apple.body:getY))
                           (apple.shape:getRadius))))
 
 (lambda player-draw [player]
@@ -69,7 +69,9 @@
     (love.graphics.circle "fill"
                           player.reticle-x
                           player.reticle-y
-                          5)))
+                          5))
+  (if player.carrying
+      (apple-draw player.carrying (player.body:getX) (player.body:getY))))
 
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
@@ -96,12 +98,8 @@ Return nil if PLAYER cannot grab anything."
 
 (lambda player-handle-grab [player apple]
   "Handle PLAYER grabbing APPLE."
-  (set player.carrying apple))
-
-(lambda apple-handle-grabbed [apple]
-  "Handle APPLE being grabbed."
-  (set apple.is-carried true)
-  (apple.fixture:setMask 1))
+  (set player.carrying apple)
+  (set apple.alive false))
 
 (lambda apple-p [thing]
   "Return non-nil if THING is an apple."
@@ -120,7 +118,7 @@ Return nil if PLAYER cannot grab anything."
      : body
      : shape
      : fixture
-     :is-carried false}))
+     :alive true}))
 
 (lambda box-p [thing]
   "Return non-nil if THING is an box."
@@ -131,37 +129,41 @@ Return nil if PLAYER cannot grab anything."
   (let [thing (player-what-grab player things)]
     (when thing
       (when (apple-p thing)
-        (player-handle-grab player thing)
-        (apple-handle-grabbed thing))
+        (player-handle-grab player thing))
       (when (box-p thing)
         (let [apple (apple-create 0 0)]
           (table.insert things apple)
-          (player-handle-grab player apple)
-          (apple-handle-grabbed apple))))))
+          (player-handle-grab player apple))))))
+
+(lambda bin-p [thing]
+  "Return t if THING is a bin."
+  (= "bin" thing.type))
+
+(lambda counter-p [thing]
+  "Return t if THING is a counter."
+  (= "counter" thing.type))
 
 (lambda player-drop [player things]
   "As PLAYER, drop the currently held thing."
   (let [thing player.carrying
         looking-at (player-what-grab player things)]
-    (thing.fixture:setMask)
-    (set player.carrying nil)
-    (thing.body:setX player.reticle-x)
-    (thing.body:setY player.reticle-y)
-    (set thing.is-carried false)
-    (if (bin-p looking-at)
-        ;; TODO: remove apple from things
-        )))
+    (if (= nil looking-at) (do
+                             (thing.fixture:setMask)
+                             (set player.carrying nil)
+                             (thing.body:setX player.reticle-x)
+                             (thing.body:setY player.reticle-y)
+                             (set thing.alive true)
+                             (table.insert things thing))
+        (bin-p looking-at) (set player.carrying nil)
+        (counter-p looking-at) (do
+                                 (set looking-at.placed-on player.carrying)
+                                 (set player.carrying nil)))))
 
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
   (if player.carrying
       (player-drop player things)
       (player-grab player things)))
-
-(lambda apple-update [apple]
-  (when apple.is-carried
-    (apple.body:setX (player.body:getX))
-    (apple.body:setY (player.body:getY))))
 
 (lambda box-create [x y]
   "Create a box."
@@ -171,6 +173,7 @@ Return nil if PLAYER cannot grab anything."
     (fixture:setCategory 1)
     (fixture:setMask)
     {:type "box"
+     :alive true
      : body
      : shape
      : fixture}))
@@ -183,20 +186,39 @@ Return nil if PLAYER cannot grab anything."
     (fixture:setCategory 1)
     (fixture:setMask)
     {:type "bin"
+     :alive true
      : body
      : shape
      : fixture}))
 
-(lambda bin-p [thing]
-  "Return t if THING is a bin."
-  (= "bin" thing.type))
+(lambda counter-create [x y]
+  "Create a counter."
+  (let [body (love.physics.newBody world x y "static")
+        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "counter"
+     :alive true
+     :placed-on nil
+     : body
+     : shape
+     : fixture}))
 
 (lambda box-draw [box]
+  "Draw a box"
   (with-colour 0 0 1
     (love.graphics.polygon "fill"
                            (box.body:getWorldPoints (box.shape:getPoints)))))
 
+(lambda counter-draw [counter]
+  "Draw a counter"
+  (with-colour 0 1 1
+    (love.graphics.polygon "fill"
+                           (counter.body:getWorldPoints (counter.shape:getPoints)))))
+
 (lambda bin-draw [bin]
+  "Draw a bin"
   (with-colour 1 0 1
     (love.graphics.polygon "fill"
                            (bin.body:getWorldPoints (bin.shape:getPoints)))))
@@ -209,16 +231,19 @@ Return nil if PLAYER cannot grab anything."
   (table.insert things (apple-create 500 100))
   (table.insert things (apple-create 100 500))
   (table.insert things (box-create 600 600))
-  (table.insert things (bin-create 900 100)))
+  (table.insert things (bin-create 900 100))
+  (table.insert things (counter-create 1200 100)))
 
 (lambda thing-update [thing]
   "Update THING."
-  (if (apple-p thing)
-      (apple-update thing)))
+  )
 
 (fn love.update [deltatime]
   (world:update deltatime)
   (player-update player)
+  (set things (icollect [_ thing (ipairs things)]
+                (if thing.alive
+                    thing)))
   (each [_ thing (ipairs things)]
     (thing-update thing)))
 
@@ -229,7 +254,9 @@ Return nil if PLAYER cannot grab anything."
       (box-p thing)
       (box-draw thing)
       (bin-p thing)
-      (bin-draw thing)))
+      (bin-draw thing)
+      (counter-p thing)
+      (counter-draw thing)))
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
