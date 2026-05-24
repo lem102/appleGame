@@ -1,5 +1,3 @@
-;; TODO: counter that apples can be placed on
-
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 (local PLAYER_GRAB_DISTANCE 100)
@@ -124,46 +122,49 @@ Return nil if PLAYER cannot grab anything."
   "Return non-nil if THING is an box."
   (= thing.type "box"))
 
-(lambda player-grab [player things]
+(lambda counter-p [thing]
+  "Return t if THING is a counter."
+  (= "counter" thing.type))
+
+(lambda player-grab [player selected-thing]
   "As PLAYER, try to grab one of THINGS."
-  (let [thing (player-what-grab player things)]
-    (when thing
-      (when (apple-p thing)
-        (player-handle-grab player thing))
-      (when (box-p thing)
-        (let [apple (apple-create 0 0)]
-          (table.insert things apple)
-          (player-handle-grab player apple))))))
+  (when selected-thing
+    (when (apple-p selected-thing)
+      (player-handle-grab player selected-thing))
+    (when (box-p selected-thing)
+      (let [apple (apple-create 0 0)]
+        (table.insert things apple)
+        (player-handle-grab player apple)))
+    (when (counter-p selected-thing)
+      (when selected-thing.placed-on
+        (player-handle-grab player selected-thing.placed-on)
+        (set selected-thing.placed-on nil)))))
 
 (lambda bin-p [thing]
   "Return t if THING is a bin."
   (= "bin" thing.type))
 
-(lambda counter-p [thing]
-  "Return t if THING is a counter."
-  (= "counter" thing.type))
-
-(lambda player-drop [player things]
+(lambda player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
-  (let [thing player.carrying
-        looking-at (player-what-grab player things)]
-    (if (= nil looking-at) (do
-                             (thing.fixture:setMask)
-                             (set player.carrying nil)
-                             (thing.body:setX player.reticle-x)
-                             (thing.body:setY player.reticle-y)
-                             (set thing.alive true)
-                             (table.insert things thing))
-        (bin-p looking-at) (set player.carrying nil)
-        (counter-p looking-at) (do
-                                 (set looking-at.placed-on player.carrying)
-                                 (set player.carrying nil)))))
+  (let [thing player.carrying]
+    (if (= nil selected-thing) (do
+                                 (thing.fixture:setMask)
+                                 (set player.carrying nil)
+                                 (thing.body:setX player.reticle-x)
+                                 (thing.body:setY player.reticle-y)
+                                 (set thing.alive true)
+                                 (table.insert things thing))
+        (bin-p selected-thing) (set player.carrying nil)
+        (counter-p selected-thing) (when (not selected-thing.placed-on)
+                                     (set selected-thing.placed-on player.carrying)
+                                     (set player.carrying nil)))))
 
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
-  (if player.carrying
-      (player-drop player things)
-      (player-grab player things)))
+  (let [selected-thing (player-what-grab player things)]
+    (if player.carrying
+        (player-drop player selected-thing)
+        (player-grab player selected-thing))))
 
 (lambda box-create [x y]
   "Create a box."
@@ -215,7 +216,9 @@ Return nil if PLAYER cannot grab anything."
   "Draw a counter"
   (with-colour 0 1 1
     (love.graphics.polygon "fill"
-                           (counter.body:getWorldPoints (counter.shape:getPoints)))))
+                           (counter.body:getWorldPoints (counter.shape:getPoints))))
+  (if counter.placed-on
+      (apple-draw counter.placed-on (counter.body:getX) (counter.body:getY))))
 
 (lambda bin-draw [bin]
   "Draw a bin"
