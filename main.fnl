@@ -122,9 +122,10 @@ Return nil if PLAYER cannot grab anything."
   "Return non-nil if THING is an box."
   (= thing.type "box"))
 
-(lambda counter-p [thing]
+(fn counter-p [thing]
   "Return t if THING is a counter."
-  (= "counter" thing.type))
+  (and thing
+       (= "counter" thing.type)))
 
 (lambda player-grab [player ?selected-thing]
   "As PLAYER, grab SELECTED-THING."
@@ -140,24 +141,25 @@ Return nil if PLAYER cannot grab anything."
         (player-handle-grab player ?selected-thing.placed-on)
         (set ?selected-thing.placed-on nil)))))
 
-(lambda bin-p [thing]
+(fn bin-p [thing]
   "Return t if THING is a bin."
-  (= "bin" thing.type))
+  (and thing
+       (= "bin" thing.type)))
 
 (lambda player-drop [player ?selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.carrying]
-    (if (= nil ?selected-thing) (do
-                                  (thing.fixture:setMask)
-                                  (set player.carrying nil)
-                                  (thing.body:setX player.reticle-x)
-                                  (thing.body:setY player.reticle-y)
-                                  (set thing.alive true)
-                                  (table.insert things thing))
-        (bin-p ?selected-thing) (set player.carrying nil)
+    (if (bin-p ?selected-thing) (set player.carrying nil)
         (counter-p ?selected-thing) (when (not ?selected-thing.placed-on)
                                       (set ?selected-thing.placed-on player.carrying)
-                                      (set player.carrying nil)))))
+                                      (set player.carrying nil))
+        (do
+          (thing.fixture:setMask)
+          (set player.carrying nil)
+          (thing.body:setX player.reticle-x)
+          (thing.body:setY player.reticle-y)
+          (set thing.alive true)
+          (table.insert things thing)))))
 
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
