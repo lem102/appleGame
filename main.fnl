@@ -199,7 +199,7 @@ Return nil if PLAYER cannot grab anything."
      : shape
      : fixture}))
 
-(lambda counter-create [x y]
+(fn counter-create [x y station]
   "Create a counter."
   (let [body (love.physics.newBody world x y "static")
         shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
@@ -210,6 +210,7 @@ Return nil if PLAYER cannot grab anything."
      :alive true
      :placed-on nil
      ;; TODO: property to contain tool on the counter (e.g. chopping board)
+     : station
      : body
      : shape
      : fixture}))
@@ -220,11 +221,17 @@ Return nil if PLAYER cannot grab anything."
     (love.graphics.polygon "fill"
                            (box.body:getWorldPoints (box.shape:getPoints)))))
 
-(lambda counter-draw [counter]
+(fn counter-draw [counter]
   "Draw a counter"
   (with-colour 0 1 1
-    (love.graphics.polygon "fill"
-                           (counter.body:getWorldPoints (counter.shape:getPoints))))
+    (love.graphics.polygon
+     "fill"
+     (counter.body:getWorldPoints
+      (counter.shape:getPoints))))
+  (if (= counter.station "chop")
+      (with-colour 0.4 0.4 0.4
+        (love.graphics.polygon "fill"
+                               (counter.body:getWorldPoints (counter.shape:getPoints)))))
   (if counter.placed-on
       (apple-draw counter.placed-on (counter.body:getX) (counter.body:getY))))
 
@@ -243,7 +250,8 @@ Return nil if PLAYER cannot grab anything."
   (table.insert things (apple-create 100 500))
   (table.insert things (box-create 600 600))
   (table.insert things (bin-create 900 100))
-  (table.insert things (counter-create 1200 100)))
+  (table.insert things (counter-create 1200 100))
+  (table.insert things (counter-create 1200 500 "chop")))
 
 (lambda thing-update [thing]
   "Update THING."
