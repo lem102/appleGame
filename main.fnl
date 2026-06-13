@@ -1,3 +1,8 @@
+;; an overcooked clone
+
+;; current goal is to be able to recreate the first overcooked level,
+;; where onions are chopped to create onion soup.
+
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 (local PLAYER_GRAB_DISTANCE 100)
@@ -204,6 +209,7 @@ Return nil if PLAYER cannot grab anything."
     {:type "counter"
      :alive true
      :placed-on nil
+     ;; TODO: property to contain tool on the counter (e.g. chopping board)
      : body
      : shape
      : fixture}))
