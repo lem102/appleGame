@@ -60,24 +60,16 @@
         b (if apple.chopped 1 0)]
     (with-colour r g b
       (love.graphics.circle "fill"
-                            (if x
-                                x
-                                (apple.body:getX))
-                            (if y
-                                y
-                                (apple.body:getY))
+                            (or x (apple.body:getX))
+                            (or y (apple.body:getY))
                             (apple.shape:getRadius)))))
 
-(lambda player-draw [player]
-  (with-colour 0 1 0
-    (love.graphics.polygon "fill"
-                           (player.body:getWorldPoints (player.shape:getPoints)))
+(fn pot-draw [pot x y]
+  (with-colour 0.1 0.1 0.1
     (love.graphics.circle "fill"
-                          player.reticle-x
-                          player.reticle-y
-                          5))
-  (if player.carrying
-      (apple-draw player.carrying (player.body:getX) (player.body:getY))))
+                          (or x (pot.body:getX))
+                          (or y (pot.body:getY))
+                          (pot.shape:getRadius))))
 
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
@@ -126,6 +118,25 @@ Return nil if PLAYER cannot grab anything."
      : fixture
      :alive true}))
 
+(lambda pot-p [thing]
+  "Return non-nil if THING is an pot."
+  (= thing.type "pot"))
+
+(lambda pot-create [x y]
+  "Create the pot."
+  (let [body (love.physics.newBody world x y "dynamic")
+        shape (love.physics.newCircleShape 15)
+        fixture (love.physics.newFixture body shape 1)]
+    (body:setLinearDamping 1)
+    (fixture:setRestitution 0.9)
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "pot"
+     : body
+     : shape
+     : fixture
+     :alive true}))
+
 (lambda box-p [thing]
   "Return non-nil if THING is an box."
   (= thing.type "box"))
@@ -139,6 +150,8 @@ Return nil if PLAYER cannot grab anything."
   "As PLAYER, grab SELECTED-THING."
   (when ?selected-thing
     (when (apple-p ?selected-thing)
+      (player-handle-grab player ?selected-thing))
+    (when (pot-p ?selected-thing)
       (player-handle-grab player ?selected-thing))
     (when (box-p ?selected-thing)
       (let [apple (apple-create 0 0)]
@@ -237,20 +250,6 @@ sensitive action, the player should not be carrying anything."
     (love.graphics.polygon "fill"
                            (box.body:getWorldPoints (box.shape:getPoints)))))
 
-(fn counter-draw [counter]
-  "Draw a counter"
-  (with-colour 0 1 1
-    (love.graphics.polygon
-     "fill"
-     (counter.body:getWorldPoints
-      (counter.shape:getPoints))))
-  (if (= counter.station "chop")
-      (with-colour 0.4 0.4 0.4
-        (love.graphics.polygon "fill"
-                               (counter.body:getWorldPoints (counter.shape:getPoints)))))
-  (if counter.placed-on
-      (apple-draw counter.placed-on (counter.body:getX) (counter.body:getY))))
-
 (lambda bin-draw [bin]
   "Draw a bin"
   (with-colour 1 0 1
@@ -267,7 +266,8 @@ sensitive action, the player should not be carrying anything."
   (table.insert things (box-create 600 600))
   (table.insert things (bin-create 900 100))
   (table.insert things (counter-create 1200 100))
-  (table.insert things (counter-create 1200 500 "chop")))
+  (table.insert things (counter-create 1200 500 "chop"))
+  (table.insert things (pot-create 600 500)))
 
 (lambda thing-update [thing]
   "Update THING."
@@ -282,16 +282,44 @@ sensitive action, the player should not be carrying anything."
   (each [_ thing (ipairs things)]
     (thing-update thing)))
 
-(lambda thing-draw [thing]
+(fn counter-draw [counter]
+  "Draw a counter"
+  (with-colour 0 1 1
+    (love.graphics.polygon
+     "fill"
+     (counter.body:getWorldPoints
+      (counter.shape:getPoints))))
+  (if (= counter.station "chop")
+      (with-colour 0.4 0.4 0.4
+        (love.graphics.polygon "fill"
+                               (counter.body:getWorldPoints (counter.shape:getPoints))))))
+
+(fn thing-draw [thing x y]
   "Draw THING."
   (if (apple-p thing)
-      (apple-draw thing)
+      (apple-draw thing x y)
       (box-p thing)
       (box-draw thing)
       (bin-p thing)
       (bin-draw thing)
       (counter-p thing)
-      (counter-draw thing)))
+      (do
+        (counter-draw thing)
+        (if thing.placed-on
+            (thing-draw thing.placed-on (thing.body:getX) (thing.body:getY))))
+      (pot-p thing)
+      (pot-draw thing x y)))
+
+(lambda player-draw [player]
+  (with-colour 0 1 0
+    (love.graphics.polygon "fill"
+                           (player.body:getWorldPoints (player.shape:getPoints)))
+    (love.graphics.circle "fill"
+                          player.reticle-x
+                          player.reticle-y
+                          5))
+  (if player.carrying
+      (thing-draw player.carrying (player.body:getX) (player.body:getY))))
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
