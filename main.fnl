@@ -54,27 +54,19 @@
       (set player.reticle-x (+ (player.body:getX) vx))
       (set player.reticle-y (+ (player.body:getY) vy)))))
 
-(lambda apple-draw [apple ?x ?y]
-  (if (= apple.chopped true)
-      (with-colour 0 1 1
-        (love.graphics.circle "fill"
-                              (if ?x
-                                  ?x
-                                  (apple.body:getX))
-                              (if ?y
-                                  ?y
-                                  (apple.body:getY))
-                              (apple.shape:getRadius)))
-      (with-colour 1 0 0
-        (love.graphics.circle "fill"
-                              (if ?x
-                                  ?x
-                                  (apple.body:getX))
-                              (if ?y
-                                  ?y
-                                  (apple.body:getY))
-                              (apple.shape:getRadius))))
-  )
+(fn apple-draw [apple x y]
+  (let [r (if apple.chopped 0 1)
+        g (if apple.chopped 1 0)
+        b (if apple.chopped 1 0)]
+    (with-colour r g b
+      (love.graphics.circle "fill"
+                            (if x
+                                x
+                                (apple.body:getX))
+                            (if y
+                                y
+                                (apple.body:getY))
+                            (apple.shape:getRadius)))))
 
 (lambda player-draw [player]
   (with-colour 0 1 0
