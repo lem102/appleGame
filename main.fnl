@@ -38,14 +38,14 @@
      :carrying nil}))
 
 (lambda player-update [player]
-  (let [vx (if (love.keyboard.isDown "a")
+  (let [vx (if (love.keyboard.isDown "left")
                (- PLAYER_SPEED)
-               (love.keyboard.isDown "d")
+               (love.keyboard.isDown "right")
                PLAYER_SPEED
                0)
-        vy (if (love.keyboard.isDown "w")
+        vy (if (love.keyboard.isDown "up")
                (- PLAYER_SPEED)
-               (love.keyboard.isDown "s")
+               (love.keyboard.isDown "down")
                PLAYER_SPEED
                0)]
     (player.body:setLinearVelocity vx vy)
@@ -55,15 +55,26 @@
       (set player.reticle-y (+ (player.body:getY) vy)))))
 
 (lambda apple-draw [apple ?x ?y]
-  (with-colour 1 0 0
-    (love.graphics.circle "fill"
-                          (if ?x
-                              ?x
-                              (apple.body:getX))
-                          (if ?y
-                              ?y
-                              (apple.body:getY))
-                          (apple.shape:getRadius))))
+  (if (= apple.chopped true)
+      (with-colour 0 1 1
+        (love.graphics.circle "fill"
+                              (if ?x
+                                  ?x
+                                  (apple.body:getX))
+                              (if ?y
+                                  ?y
+                                  (apple.body:getY))
+                              (apple.shape:getRadius)))
+      (with-colour 1 0 0
+        (love.graphics.circle "fill"
+                              (if ?x
+                                  ?x
+                                  (apple.body:getX))
+                              (if ?y
+                                  ?y
+                                  (apple.body:getY))
+                              (apple.shape:getRadius))))
+  )
 
 (lambda player-draw [player]
   (with-colour 0 1 0
@@ -153,6 +164,7 @@ Return nil if PLAYER cannot grab anything."
 
 (lambda player-drop [player ?selected-thing]
   "As PLAYER, drop the currently held thing."
+  ;; TODO: handle dropping on box
   (let [thing player.carrying]
     (if (bin-p ?selected-thing) (set player.carrying nil)
         (counter-p ?selected-thing) (when (not ?selected-thing.placed-on)
@@ -172,6 +184,18 @@ Return nil if PLAYER cannot grab anything."
     (if player.carrying
         (player-drop player selected-thing)
         (player-grab player selected-thing))))
+
+(fn player-context-action [player things]
+  "Perform the context sensitive action.
+
+For example, this could be to chop an apple. To perform a context
+sensitive action, the player should not be carrying anything."
+  (when (not player.carrying)
+    (let [selected (player-what-grab player things)]
+      (when (and selected
+                 (= selected.type "counter")
+                 (= selected.station "chop"))
+        (set selected.placed-on.chopped true)))))
 
 (lambda box-create [x y]
   "Create a box."
@@ -284,8 +308,10 @@ Return nil if PLAYER cannot grab anything."
     (thing-draw thing)))
 
 (fn love.keypressed [key _scancode _repeat]
-  (when (= key "space")
+  (when (= key "z")
     (player-grab-or-drop player things))
+  (when (= key "x")
+    (player-context-action player things))
 
   (when (love.keyboard.isDown "escape")
     (love.event.quit)))
