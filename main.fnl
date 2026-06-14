@@ -35,7 +35,7 @@
      : fixture
      :reticle-x 0
      :reticle-y 0
-     :carrying nil}))
+     :placed-on nil}))
 
 (lambda player-update [player]
   (let [vx (if (love.keyboard.isDown "left")
@@ -96,7 +96,7 @@ Return nil if PLAYER cannot grab anything."
 
 (lambda player-handle-grab [player apple]
   "Handle PLAYER grabbing APPLE."
-  (set player.carrying apple)
+  (set player.placed-on apple)
   (set apple.alive false))
 
 (lambda apple-p [thing]
@@ -170,14 +170,14 @@ Return nil if PLAYER cannot grab anything."
 (lambda player-drop [player ?selected-thing]
   "As PLAYER, drop the currently held thing."
   ;; TODO: handle dropping on box
-  (let [thing player.carrying]
-    (if (bin-p ?selected-thing) (set player.carrying nil)
+  (let [thing player.placed-on]
+    (if (bin-p ?selected-thing) (set player.placed-on nil)
         (counter-p ?selected-thing) (when (not ?selected-thing.placed-on)
-                                      (set ?selected-thing.placed-on player.carrying)
-                                      (set player.carrying nil))
+                                      (set ?selected-thing.placed-on player.placed-on)
+                                      (set player.placed-on nil))
         (do
           (thing.fixture:setMask)
-          (set player.carrying nil)
+          (set player.placed-on nil)
           (thing.body:setX player.reticle-x)
           (thing.body:setY player.reticle-y)
           (set thing.alive true)
@@ -186,7 +186,7 @@ Return nil if PLAYER cannot grab anything."
 (lambda player-grab-or-drop [player things]
   "As PLAYER, grab or drop an apple."
   (let [selected-thing (player-what-grab player things)]
-    (if player.carrying
+    (if player.placed-on
         (player-drop player selected-thing)
         (player-grab player selected-thing))))
 
@@ -194,8 +194,8 @@ Return nil if PLAYER cannot grab anything."
   "Perform the context sensitive action.
 
 For example, this could be to chop an apple. To perform a context
-sensitive action, the player should not be carrying anything."
-  (when (not player.carrying)
+sensitive action, the player should not be placed-on anything."
+  (when (not player.placed-on)
     (let [selected (player-what-grab player things)]
       (when (and selected
                  (= selected.type "counter")
@@ -303,12 +303,11 @@ sensitive action, the player should not be carrying anything."
       (bin-p thing)
       (bin-draw thing)
       (counter-p thing)
-      (do
-        (counter-draw thing)
-        (if thing.placed-on
-            (thing-draw thing.placed-on (thing.body:getX) (thing.body:getY))))
+      (counter-draw thing)
       (pot-p thing)
-      (pot-draw thing x y)))
+      (pot-draw thing x y))
+  (if thing.placed-on
+      (thing-draw thing.placed-on (thing.body:getX) (thing.body:getY))))
 
 (lambda player-draw [player]
   (with-colour 0 1 0
@@ -318,8 +317,8 @@ sensitive action, the player should not be carrying anything."
                           player.reticle-x
                           player.reticle-y
                           5))
-  (if player.carrying
-      (thing-draw player.carrying (player.body:getX) (player.body:getY))))
+  (if player.placed-on
+      (thing-draw player.placed-on (player.body:getX) (player.body:getY))))
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
