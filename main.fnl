@@ -35,7 +35,8 @@
      : fixture
      :reticle-x 0
      :reticle-y 0
-     :placed-on nil}))
+     :placed-on nil
+     :alive true}))
 
 (lambda player-update [player]
   (let [vx (if (love.keyboard.isDown "left")
@@ -94,10 +95,10 @@ Return nil if PLAYER cannot grab anything."
     (when (> (length thing-distances) 0)
       (. (. thing-distances 1) "thing"))))
 
-(lambda player-handle-grab [player apple]
-  "Handle PLAYER grabbing APPLE."
-  (set player.placed-on apple)
-  (set apple.alive false))
+(lambda player-handle-grab [player thing]
+  "Handle PLAYER grabbing THING."
+  (set player.placed-on thing)
+  (set thing.alive false))
 
 (lambda apple-p [thing]
   "Return non-nil if THING is an apple."
@@ -118,9 +119,10 @@ Return nil if PLAYER cannot grab anything."
      : fixture
      :alive true}))
 
-(lambda pot-p [thing]
+(fn pot-p [thing]
   "Return non-nil if THING is an pot."
-  (= thing.type "pot"))
+  (and thing
+       (= thing.type "pot")))
 
 (lambda pot-create [x y]
   "Create the pot."
@@ -135,7 +137,8 @@ Return nil if PLAYER cannot grab anything."
      : body
      : shape
      : fixture
-     :alive true}))
+     :alive true
+     :held 0}))
 
 (lambda box-p [thing]
   "Return non-nil if THING is an box."
@@ -170,11 +173,16 @@ Return nil if PLAYER cannot grab anything."
 (lambda player-drop [player ?selected-thing]
   "As PLAYER, drop the currently held thing."
   ;; TODO: handle dropping on box
+  ;; TODO: handle dropping chopped apple on pot
   (let [thing player.placed-on]
     (if (bin-p ?selected-thing) (set player.placed-on nil)
         (counter-p ?selected-thing) (when (not ?selected-thing.placed-on)
                                       (set ?selected-thing.placed-on player.placed-on)
                                       (set player.placed-on nil))
+        (pot-p ?selected-thing) (do
+                                  (set ?selected-thing.held
+                                       (+ ?selected-thing.held 1))
+                                  (set player.placed-on nil))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
@@ -261,6 +269,7 @@ sensitive action, the player should not be placed-on anything."
   (love.physics.setMeter 64)
   (set world (love.physics.newWorld 0 0 true))
   (set player (player-create))
+  (table.insert things player)
   (table.insert things (apple-create 500 100))
   (table.insert things (apple-create 100 500))
   (table.insert things (box-create 600 600))
@@ -294,9 +303,24 @@ sensitive action, the player should not be placed-on anything."
         (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
 
+(fn player-p [thing]
+  "Return true if THING is a player."
+  (= thing.type "player"))
+
+(lambda player-draw [player]
+  (with-colour 0 1 0
+    (love.graphics.polygon "fill"
+                           (player.body:getWorldPoints (player.shape:getPoints)))
+    (love.graphics.circle "fill"
+                          player.reticle-x
+                          player.reticle-y
+                          5)))
+
 (fn thing-draw [thing x y]
   "Draw THING."
-  (if (apple-p thing)
+  (if (player-p thing)
+      (player-draw thing)
+      (apple-p thing)
       (apple-draw thing x y)
       (box-p thing)
       (box-draw thing)
@@ -307,22 +331,14 @@ sensitive action, the player should not be placed-on anything."
       (pot-p thing)
       (pot-draw thing x y))
   (if thing.placed-on
+      ;; instead of doing this whole placed on thing with the apple
+      ;; and the pot, trying to drop the apple on the pot should
+      ;; change some state within the pot, and the apple should be
+      ;; deleted.
       (thing-draw thing.placed-on (thing.body:getX) (thing.body:getY))))
-
-(lambda player-draw [player]
-  (with-colour 0 1 0
-    (love.graphics.polygon "fill"
-                           (player.body:getWorldPoints (player.shape:getPoints)))
-    (love.graphics.circle "fill"
-                          player.reticle-x
-                          player.reticle-y
-                          5))
-  (if player.placed-on
-      (thing-draw player.placed-on (player.body:getX) (player.body:getY))))
 
 (fn love.draw []
   (love.graphics.setColor 1 1 1)
-  (player-draw player)
   (each [_ thing (ipairs things)]
     (thing-draw thing)))
 
