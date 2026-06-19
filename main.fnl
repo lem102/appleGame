@@ -39,14 +39,14 @@
      :alive true}))
 
 (lambda player-update [player]
-  (let [vx (if (love.keyboard.isDown "left")
+  (let [vx (if (love.keyboard.isDown "a")
                (- PLAYER_SPEED)
-               (love.keyboard.isDown "right")
+               (love.keyboard.isDown "d")
                PLAYER_SPEED
                0)
-        vy (if (love.keyboard.isDown "up")
+        vy (if (love.keyboard.isDown "w")
                (- PLAYER_SPEED)
-               (love.keyboard.isDown "down")
+               (love.keyboard.isDown "s")
                PLAYER_SPEED
                0)]
     (player.body:setLinearVelocity vx vy)
@@ -337,9 +337,9 @@ sensitive action, the player should not be placed-on anything."
     (thing-draw thing)))
 
 (fn love.keypressed [key _scancode _repeat]
-  (when (= key "z")
+  (when (= key "j")
     (player-grab-or-drop player things))
-  (when (= key "x")
+  (when (= key "k")
     (player-context-action player things))
 
   (when (love.keyboard.isDown "escape")
