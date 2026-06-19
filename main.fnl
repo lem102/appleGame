@@ -278,18 +278,12 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (counter-create 1200 500 "chop"))
   (table.insert things (pot-create 600 500)))
 
-(lambda thing-update [thing]
-  "Update THING."
-  )
-
 (fn love.update [deltatime]
   (world:update deltatime)
   (player-update player)
   (set things (icollect [_ thing (ipairs things)]
                 (if thing.alive
-                    thing)))
-  (each [_ thing (ipairs things)]
-    (thing-update thing)))
+                    thing))))
 
 (fn counter-draw [counter]
   "Draw a counter"
