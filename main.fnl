@@ -56,9 +56,9 @@
       (set player.reticle-y (+ (player.body:getY) vy)))))
 
 (fn apple-draw [apple x y]
-  (let [r (if apple.chopped 0 1)
-        g (if apple.chopped 1 0)
-        b (if apple.chopped 1 0)]
+  (let [r (if apple.prepared 0 1)
+        g (if apple.prepared 1 0)
+        b (if apple.prepared 1 0)]
     (with-colour r g b
       (love.graphics.circle "fill"
                             (or x (apple.body:getX))
@@ -117,7 +117,8 @@ Return nil if PLAYER cannot grab anything."
      : body
      : shape
      : fixture
-     :alive true}))
+     :alive true
+     :chopped false}))
 
 (fn pot-p [thing]
   "Return non-nil if THING is an pot."
@@ -170,19 +171,18 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        (= "bin" thing.type)))
 
-(lambda player-drop [player ?selected-thing]
+(fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   ;; TODO: handle dropping on box
-  ;; TODO: handle dropping chopped apple on pot
   (let [thing player.placed-on]
-    (if (bin-p ?selected-thing) (set player.placed-on nil)
-        (counter-p ?selected-thing) (when (not ?selected-thing.placed-on)
-                                      (set ?selected-thing.placed-on player.placed-on)
-                                      (set player.placed-on nil))
-        (pot-p ?selected-thing) (do
-                                  (set ?selected-thing.held
-                                       (+ ?selected-thing.held 1))
-                                  (set player.placed-on nil))
+    (if (bin-p selected-thing) (set player.placed-on nil)
+        (counter-p selected-thing) (when (not selected-thing.placed-on)
+                                     (set selected-thing.placed-on player.placed-on)
+                                     (set player.placed-on nil))
+        (pot-p selected-thing) (when player.placed-on.prepared
+                                 (set selected-thing.held
+                                      (+ selected-thing.held 1))
+                                 (set player.placed-on nil))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
@@ -208,7 +208,7 @@ sensitive action, the player should not be placed-on anything."
       (when (and selected
                  (= selected.type "counter")
                  (= selected.station "chop"))
-        (set selected.placed-on.chopped true)))))
+        (set selected.placed-on.prepared true)))))
 
 (lambda box-create [x y]
   "Create a box."
