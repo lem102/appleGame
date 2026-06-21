@@ -70,7 +70,19 @@
     (love.graphics.circle "fill"
                           (or x (pot.body:getX))
                           (or y (pot.body:getY))
-                          (pot.shape:getRadius))))
+                          (pot.shape:getRadius)))
+  (if (> pot.held 0)
+      (with-colour 1 0 0
+        (love.graphics.circle "fill"
+                              (or x (pot.body:getX))
+                              (or y (pot.body:getY))
+                              (* (pot.shape:getRadius)
+                                 (if (= pot.held 1)
+                                     0.2
+                                     (= pot.held 2)
+                                     0.5
+                                     (>= pot.held 3)
+                                     0.8))))))
 
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
@@ -176,7 +188,10 @@ Return nil if PLAYER cannot grab anything."
   ;; TODO: handle dropping on box
   (let [thing player.placed-on]
     (if (bin-p selected-thing) (set player.placed-on nil)
-        (counter-p selected-thing) (when (not selected-thing.placed-on)
+        (counter-p selected-thing) (when (and (not selected-thing.placed-on)
+                                              (not (and (= selected-thing.station "hob")
+                                                        (not (= player.placed-on.type "pot")))))
+                                     ;; TODO: handle dropping prepared apple into pot placed on counter
                                      (set selected-thing.placed-on player.placed-on)
                                      (set player.placed-on nil))
         (pot-p selected-thing) (when player.placed-on.prepared
@@ -276,6 +291,7 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (bin-create 900 100))
   (table.insert things (counter-create 1200 100))
   (table.insert things (counter-create 1200 500 "chop"))
+  (table.insert things (counter-create 200 500 "hob"))
   (table.insert things (pot-create 600 500)))
 
 (fn love.update [deltatime]
@@ -294,6 +310,10 @@ sensitive action, the player should not be placed-on anything."
       (counter.shape:getPoints))))
   (if (= counter.station "chop")
       (with-colour 0.4 0.4 0.4
+        (love.graphics.polygon "fill"
+                               (counter.body:getWorldPoints (counter.shape:getPoints))))
+      (= counter.station "hob")
+      (with-colour 0.6 0.6 0.6
         (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
 
