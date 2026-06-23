@@ -183,18 +183,31 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        (= "bin" thing.type)))
 
+;; TODO: should box be a type of counter?
+
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
-  ;; TODO: handle dropping on box
+  ;; TODO: handle dropping on box (potentially solved by making box type of counter)
+  ;; TODO: handle dropping pot in bin
   (let [thing player.placed-on]
     (if (bin-p selected-thing) (set player.placed-on nil)
-        (counter-p selected-thing) (when (and (not selected-thing.placed-on)
-                                              (not (and (= selected-thing.station "hob")
-                                                        (not (= player.placed-on.type "pot")))))
-                                     ;; TODO: handle dropping prepared apple into pot placed on counter
-                                     (set selected-thing.placed-on player.placed-on)
-                                     (set player.placed-on nil))
-        (pot-p selected-thing) (when player.placed-on.prepared
+        (counter-p selected-thing) (let [counter selected-thing]
+                                     (if
+                                      ;; place prepared food in pot on counter
+                                      (and counter.placed-on
+                                           (= counter.placed-on.type "pot"))
+                                      (let [pot counter.placed-on]
+                                        (when player.placed-on.prepared ; TODO: resolve repitition
+                                          (set pot.held
+                                               (+ pot.held 1)))
+                                        (set player.placed-on nil))
+                                      (and (not counter.placed-on)
+                                           (not (and (= counter.station "hob")
+                                                     (not (= player.placed-on.type "pot")))))
+                                      (do
+                                        (set counter.placed-on player.placed-on)
+                                        (set player.placed-on nil))))
+        (pot-p selected-thing) (when player.placed-on.prepared ; TODO: resolve repitition
                                  (set selected-thing.held
                                       (+ selected-thing.held 1))
                                  (set player.placed-on nil))
