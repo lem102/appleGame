@@ -188,9 +188,14 @@ Return nil if PLAYER cannot grab anything."
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   ;; TODO: handle dropping on box (potentially solved by making box type of counter)
-  ;; TODO: handle dropping pot in bin
   (let [thing player.placed-on]
-    (if (bin-p selected-thing) (set player.placed-on nil)
+    (if (bin-p selected-thing) (let [bin selected-thing]
+                                 (if
+                                  ;; bin the contents of the pot instead of the pot itself
+                                  (= player.placed-on.type "pot")
+                                  (set player.placed-on.held 0)
+                                  ;; bin what the player is holding
+                                  (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
                                      (if
                                       ;; place prepared food in pot on counter
