@@ -207,6 +207,7 @@ Return nil if PLAYER cannot grab anything."
                                                (+ pot.held 1)))
                                         (set player.placed-on nil))
                                       (and (not counter.placed-on)
+                                           ;; prevent non-pots from being placed on a hob
                                            (not (and (= counter.station "hob")
                                                      (not (= player.placed-on.type "pot")))))
                                       (do
