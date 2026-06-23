@@ -1,5 +1,7 @@
 fennel = require("fennel")
+
 debug.traceback = fennel.traceback
+
 table.insert(package.loaders, function(filename)
    if love.filesystem.getInfo(filename) then
       return function(...)
