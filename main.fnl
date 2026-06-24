@@ -153,41 +153,35 @@ Return nil if PLAYER cannot grab anything."
      :alive true
      :held 0}))
 
-(lambda box-p [thing]
-  "Return non-nil if THING is an box."
-  (= thing.type "box"))
-
 (fn counter-p [thing]
   "Return t if THING is a counter."
   (and thing
        (= "counter" thing.type)))
 
-(lambda player-grab [player ?selected-thing]
+(fn player-grab [player selected-thing]
   "As PLAYER, grab SELECTED-THING."
-  (when ?selected-thing
-    (when (apple-p ?selected-thing)
-      (player-handle-grab player ?selected-thing))
-    (when (pot-p ?selected-thing)
-      (player-handle-grab player ?selected-thing))
-    (when (box-p ?selected-thing)
-      (let [apple (apple-create 0 0)]
-        (table.insert things apple)
-        (player-handle-grab player apple)))
-    (when (counter-p ?selected-thing)
-      (when ?selected-thing.placed-on
-        (player-handle-grab player ?selected-thing.placed-on)
-        (set ?selected-thing.placed-on nil)))))
+  (when selected-thing
+    (when (apple-p selected-thing)
+      (player-handle-grab player selected-thing))
+    (when (pot-p selected-thing)
+      (player-handle-grab player selected-thing))
+    (when (counter-p selected-thing)
+      (if selected-thing.placed-on
+          (do
+            (player-handle-grab player selected-thing.placed-on)
+            (set selected-thing.placed-on nil))
+          (= selected-thing.station "box")
+          (let [apple (apple-create 0 0)]
+            (table.insert things apple)
+            (player-handle-grab player apple))))))
 
 (fn bin-p [thing]
   "Return t if THING is a bin."
   (and thing
        (= "bin" thing.type)))
 
-;; TODO: should box be a type of counter?
-
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
-  ;; TODO: handle dropping on box (potentially solved by making box type of counter)
   (let [thing player.placed-on]
     (if (bin-p selected-thing) (let [bin selected-thing]
                                  (if
@@ -244,19 +238,6 @@ sensitive action, the player should not be placed-on anything."
                  (= selected.station "chop"))
         (set selected.placed-on.prepared true)))))
 
-(lambda box-create [x y]
-  "Create a box."
-  (let [body (love.physics.newBody world x y "static")
-        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
-        fixture (love.physics.newFixture body shape 1)]
-    (fixture:setCategory 1)
-    (fixture:setMask)
-    {:type "box"
-     :alive true
-     : body
-     : shape
-     : fixture}))
-
 (lambda bin-create [x y]
   "Create a bin."
   (let [body (love.physics.newBody world x y "static")
@@ -280,17 +261,10 @@ sensitive action, the player should not be placed-on anything."
     {:type "counter"
      :alive true
      :placed-on nil
-     ;; TODO: property to contain tool on the counter (e.g. chopping board)
      : station
      : body
      : shape
      : fixture}))
-
-(lambda box-draw [box]
-  "Draw a box"
-  (with-colour 0 0 1
-    (love.graphics.polygon "fill"
-                           (box.body:getWorldPoints (box.shape:getPoints)))))
 
 (lambda bin-draw [bin]
   "Draw a bin"
@@ -306,11 +280,11 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things player)
   (table.insert things (apple-create 500 100))
   (table.insert things (apple-create 100 500))
-  (table.insert things (box-create 600 600))
   (table.insert things (bin-create 900 100))
   (table.insert things (counter-create 1200 100))
   (table.insert things (counter-create 1200 500 "chop"))
   (table.insert things (counter-create 200 500 "hob"))
+  (table.insert things (counter-create 600 600 "box"))
   (table.insert things (pot-create 600 500)))
 
 (fn love.update [deltatime]
@@ -334,6 +308,10 @@ sensitive action, the player should not be placed-on anything."
       (= counter.station "hob")
       (with-colour 0.6 0.6 0.6
         (love.graphics.polygon "fill"
+                               (counter.body:getWorldPoints (counter.shape:getPoints))))
+      (= counter.station "box")
+      (with-colour 0 0 1
+        (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
 
 (fn player-p [thing]
@@ -355,8 +333,6 @@ sensitive action, the player should not be placed-on anything."
       (player-draw thing)
       (apple-p thing)
       (apple-draw thing x y)
-      (box-p thing)
-      (box-draw thing)
       (bin-p thing)
       (bin-draw thing)
       (counter-p thing)
