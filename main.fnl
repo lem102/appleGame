@@ -198,8 +198,8 @@ Return nil if PLAYER cannot grab anything."
                                       (let [pot counter.placed-on]
                                         (when player.placed-on.prepared ; TODO: resolve repitition
                                           (set pot.held
-                                               (+ pot.held 1)))
-                                        (set player.placed-on nil))
+                                               (+ pot.held 1))
+                                          (set player.placed-on nil)))
                                       (and (not counter.placed-on)
                                            ;; prevent non-pots from being placed on a hob
                                            (not (and (= counter.station "hob")
