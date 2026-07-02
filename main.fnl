@@ -3,6 +3,10 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
+;; TODO: prepared food in pot should be cookable on a hob
+;; - how to control the state of something being cooked?
+;; - how to render the cooking bar based on that state?
+
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 (local PLAYER_GRAB_DISTANCE 100)
