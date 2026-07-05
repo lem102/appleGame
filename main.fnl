@@ -94,23 +94,29 @@
                             (apple.shape:getRadius)))))
 
 (fn pot-draw [pot x y]
-  (with-colour 0.1 0.1 0.1
-    (love.graphics.circle "fill"
-                          (or x (pot.body:getX))
-                          (or y (pot.body:getY))
-                          (pot.shape:getRadius)))
-  (if (> pot.held 0)
+  (let [pot-x (or x (pot.body:getX))
+        pot-y (or y (pot.body:getY))
+        radius (pot.shape:getRadius)]
+    (with-colour 0.1 0.1 0.1
+      (love.graphics.circle "fill" pot-x pot-y radius))
+    (when (> pot.held 0)
       (with-colour 1 0 0
         (love.graphics.circle "fill"
-                              (or x (pot.body:getX))
-                              (or y (pot.body:getY))
-                              (* (pot.shape:getRadius)
+                              pot-x
+                              pot-y
+                              (* radius
                                  (if (= pot.held 1)
                                      0.2
                                      (= pot.held 2)
                                      0.5
                                      (>= pot.held 3)
-                                     0.8))))))
+                                     0.8))))
+      (with-colour 1 1 1
+        (love.graphics.rectangle "fill"
+                                 (- pot-x radius)
+                                 (+ pot-y (* 1.2 radius))
+                                 (* 2 radius)
+                                 10)))))
 
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
