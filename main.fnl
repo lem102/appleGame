@@ -22,7 +22,8 @@
 ;; rendered as green should depend on a value stored in the pot.
 
 ;; 3. create a mechanism to track the time the pot has spent on the
-;; hob with ingredients inside.
+;; hob with ingredients inside. the time should be reset to 0 if the
+;; pot is emptied.
 
 ;; 4. create a mechanism to calculate the difference between the time
 ;; to cook the pot's contents and the current cooking duration.
@@ -116,6 +117,13 @@
                                  (- pot-x radius)
                                  (+ pot-y (* 1.2 radius))
                                  (* 2 radius)
+                                 10))
+      (with-colour 0 1 0
+        (love.graphics.rectangle "fill"
+                                 (- pot-x radius)
+                                 (+ pot-y (* 1.2 radius))
+                                 ;; for now we will say the "target" is 100
+                                 (/ (* 2 radius) (/ 100 pot.cooking-time))
                                  10)))))
 
 (lambda distance [x1 y1 x2 y2]
@@ -166,10 +174,15 @@ Return nil if PLAYER cannot grab anything."
      :alive true
      :chopped false}))
 
+(fn pot-update [pot deltatime]
+  "Update time based properties of POT."
+  (when (> pot.held 0)
+    (print pot.cooking-time)
+    (set pot.cooking-time (+ pot.cooking-time deltatime))))
+
 (fn pot-p [thing]
-  "Return non-nil if THING is an pot."
-  (and thing
-       (= thing.type "pot")))
+  "Return non-nil if THING is a pot."
+  (and thing (= thing.type "pot")))
 
 (lambda pot-create [x y]
   "Create the pot."
@@ -185,7 +198,15 @@ Return nil if PLAYER cannot grab anything."
      : shape
      : fixture
      :alive true
-     :held 0}))
+     :held 0
+     :cooking-time 50}))
+
+(fn counter-update [counter deltatime]
+  "Update COUNTER."
+  (when (and (= "hob" counter.station)
+             counter.placed-on
+             (pot-p counter.placed-on))
+    (pot-update counter.placed-on deltatime)))
 
 (fn counter-p [thing]
   "Return t if THING is a counter."
@@ -221,7 +242,9 @@ Return nil if PLAYER cannot grab anything."
                                  (if
                                   ;; bin the contents of the pot instead of the pot itself
                                   (= player.placed-on.type "pot")
-                                  (set player.placed-on.held 0)
+                                  (do
+                                    (set player.placed-on.held 0)
+                                    (set player.placed-on.cooking-time 0))
                                   ;; bin what the player is holding
                                   (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
@@ -321,12 +344,22 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (counter-create 600 600 "box"))
   (table.insert things (pot-create 600 500)))
 
+(fn player-p [thing]
+  "Return non-nil if THING is a player."
+  (and thing (= thing.type "player")))
+
+(fn thing-update [thing deltatime]
+  "Update THING."
+  (if (player-p thing) (player-update thing)
+      ;; (pot-p thing) (pot-update thing deltatime)
+      (counter-p thing) (counter-update thing deltatime)))
+
 (fn love.update [deltatime]
   (world:update deltatime)
-  (player-update player)
   (set things (icollect [_ thing (ipairs things)]
-                (if thing.alive
-                    thing))))
+                (when thing.alive
+                  (thing-update thing deltatime)
+                  thing))))
 
 (fn counter-draw [counter]
   "Draw a counter"
@@ -347,10 +380,6 @@ sensitive action, the player should not be placed-on anything."
       (with-colour 0 0 1
         (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
-
-(fn player-p [thing]
-  "Return true if THING is a player."
-  (= thing.type "player"))
 
 (lambda player-draw [player]
   (with-colour 0 1 0
