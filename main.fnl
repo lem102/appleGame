@@ -3,35 +3,6 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
-;; TODO: prepared food in pot should be cookable on a hob
-;; - how to control the state of something being cooked?
-;; the pot could calculate the amount of time required to cook based on its contents.
-;; - how to render the cooking bar based on that state?
-;; we can render a white bar that slowly fills to green as the contents of the pot approach being cooked.
-
-;; it makes sense for the drawing part to be tackled first, as then we
-;; have a good visual indication of what is happening inside the
-;; object.
-
-;; plan
-
-;; 1. render a white bar underneath the pot when it has something in
-;; it. if the pot is empty, no bar should display.
-
-;; 2. render part of the bar as green. the amount of the bar that is
-;; rendered as green should depend on a value stored in the pot.
-
-;; 3. create a mechanism to track the time the pot has spent on the
-;; hob with ingredients inside. the time should be reset to 0 if the
-;; pot is emptied.
-
-;; 4. create a mechanism to calculate the difference between the time
-;; to cook the pot's contents and the current cooking duration.
-
-;; 5. alter the rendering so that the amount of the bar that is green
-;; is determined by the mechanism in step 4.
-
-
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 (local PLAYER_GRAB_DISTANCE 100)
@@ -94,6 +65,10 @@
                             (or y (apple.body:getY))
                             (apple.shape:getRadius)))))
 
+(fn pot-calculate-cooking-time [pot]
+  "Return the amount of time it takes to cook the contents of POT in seconds."
+  (* 10 pot.held))
+
 (fn pot-draw [pot x y]
   (let [pot-x (or x (pot.body:getX))
         pot-y (or y (pot.body:getY))
@@ -123,7 +98,7 @@
                                  (- pot-x radius)
                                  (+ pot-y (* 1.2 radius))
                                  ;; for now we will say the "target" is 100
-                                 (/ (* 2 radius) (/ 100 pot.cooking-time))
+                                 (/ (* 2 radius) (/ (pot-calculate-cooking-time pot) pot.cooking-time))
                                  10)))))
 
 (lambda distance [x1 y1 x2 y2]
@@ -177,7 +152,6 @@ Return nil if PLAYER cannot grab anything."
 (fn pot-update [pot deltatime]
   "Update time based properties of POT."
   (when (> pot.held 0)
-    (print pot.cooking-time)
     (set pot.cooking-time (+ pot.cooking-time deltatime))))
 
 (fn pot-p [thing]
@@ -199,7 +173,7 @@ Return nil if PLAYER cannot grab anything."
      : fixture
      :alive true
      :held 0
-     :cooking-time 50}))
+     :cooking-time 0}))
 
 (fn counter-update [counter deltatime]
   "Update COUNTER."
