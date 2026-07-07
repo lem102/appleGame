@@ -3,6 +3,8 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
+;; TODO: prevent food from being added to a spoilt pot
+
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
 (local PLAYER_GRAB_DISTANCE 100)
@@ -93,12 +95,13 @@
                                  (+ pot-y (* 1.2 radius))
                                  (* 2 radius)
                                  10))
-      (with-colour 0 1 0
+      (with-colour (if pot.spoilt 1 0) (if pot.spoilt 0 1) 0
+        (print pot.spoilt)
         (love.graphics.rectangle "fill"
                                  (- pot-x radius)
                                  (+ pot-y (* 1.2 radius))
-                                 ;; for now we will say the "target" is 100
-                                 (/ (* 2 radius) (/ (pot-calculate-cooking-time pot) pot.cooking-time))
+                                 (/ (* 2 radius) (math.max (/ (pot-calculate-cooking-time pot) pot.cooking-time)
+                                                           1))
                                  10)))))
 
 (lambda distance [x1 y1 x2 y2]
@@ -151,8 +154,11 @@ Return nil if PLAYER cannot grab anything."
 
 (fn pot-update [pot deltatime]
   "Update time based properties of POT."
-  (when (> pot.held 0)
-    (set pot.cooking-time (+ pot.cooking-time deltatime))))
+  (when (and (not pot.spoilt) (> pot.held 0))
+    (let [new-time (+ pot.cooking-time deltatime)]
+      (set pot.cooking-time new-time)
+      (when (> pot.cooking-time (* 1.5 (pot-calculate-cooking-time pot)))
+        (set pot.spoilt true)))))
 
 (fn pot-p [thing]
   "Return non-nil if THING is a pot."
@@ -173,7 +179,8 @@ Return nil if PLAYER cannot grab anything."
      : fixture
      :alive true
      :held 0
-     :cooking-time 0}))
+     :cooking-time 0
+     :spoilt false}))
 
 (fn counter-update [counter deltatime]
   "Update COUNTER."
@@ -218,7 +225,8 @@ Return nil if PLAYER cannot grab anything."
                                   (= player.placed-on.type "pot")
                                   (do
                                     (set player.placed-on.held 0)
-                                    (set player.placed-on.cooking-time 0))
+                                    (set player.placed-on.cooking-time 0)
+                                    (set player.placed-on.spoilt false))
                                   ;; bin what the player is holding
                                   (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
