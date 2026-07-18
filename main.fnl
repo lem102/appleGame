@@ -3,7 +3,15 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
-;; TODO: prevent food from being added to a spoilt pot
+;; TODO: plates
+
+;; TODO: sink
+
+;; TODO: orders
+
+;; TODO: time limit
+
+;; TODO: score
 
 (local PLAYER_SPEED 200)
 (local PLAYER_SIZE 50)
@@ -96,7 +104,6 @@
                                  (* 2 radius)
                                  10))
       (with-colour (if pot.spoilt 1 0) (if pot.spoilt 0 1) 0
-        (print pot.spoilt)
         (love.graphics.rectangle "fill"
                                  (- pot-x radius)
                                  (+ pot-y (* 1.2 radius))
@@ -223,10 +230,10 @@ Return nil if PLAYER cannot grab anything."
                                  (if
                                   ;; bin the contents of the pot instead of the pot itself
                                   (= player.placed-on.type "pot")
-                                  (do
-                                    (set player.placed-on.held 0)
-                                    (set player.placed-on.cooking-time 0)
-                                    (set player.placed-on.spoilt false))
+                                  (let [pot player.placed-on]
+                                    (set pot.held 0)
+                                    (set pot.cooking-time 0)
+                                    (set pot.spoilt false))
                                   ;; bin what the player is holding
                                   (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
@@ -235,7 +242,8 @@ Return nil if PLAYER cannot grab anything."
                                       (and counter.placed-on
                                            (= counter.placed-on.type "pot"))
                                       (let [pot counter.placed-on]
-                                        (when player.placed-on.prepared ; TODO: resolve repitition
+                                        (when (and player.placed-on.prepared
+                                                   (not pot.spoilt)) ; TODO: resolve repitition
                                           (set pot.held
                                                (+ pot.held 1))
                                           (set player.placed-on nil)))
@@ -246,10 +254,12 @@ Return nil if PLAYER cannot grab anything."
                                       (do
                                         (set counter.placed-on player.placed-on)
                                         (set player.placed-on nil))))
-        (pot-p selected-thing) (when player.placed-on.prepared ; TODO: resolve repitition
-                                 (set selected-thing.held
-                                      (+ selected-thing.held 1))
-                                 (set player.placed-on nil))
+        (pot-p selected-thing) (let [pot selected-thing]
+                                 (when (and player.placed-on.prepared
+                                            (not pot.spoilt)) ; TODO: resolve repitition
+                                   (set pot.held
+                                        (+ pot.held 1))
+                                   (set player.placed-on nil)))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
