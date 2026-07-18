@@ -111,6 +111,17 @@
                                                            1))
                                  10)))))
 
+(fn plate-draw [plate x y]
+  "Draw a plate."
+  (let [plate-x (or x (plate.body:getX))
+        plate-y (or y (plate.body:getY))
+        radius (plate.shape:getRadius)]
+    (with-colour 1 1 1
+      (love.graphics.circle "fill" plate-x plate-y radius))
+    (when plate.is-filled
+      (with-colour 1 0 0
+        (love.graphics.circle "fill" plate-x plate-y (- radius 10))))))
+
 (lambda distance [x1 y1 x2 y2]
   "Find the distance between two points in 2d space."
   (math.sqrt (+ (^ (- x2 x1) 2) (^ (- y2 y1) 2))))
@@ -171,6 +182,10 @@ Return nil if PLAYER cannot grab anything."
   "Return non-nil if THING is a pot."
   (and thing (= thing.type "pot")))
 
+(fn plate-p [thing]
+  "Return non-nil if THING is a plate."
+  (and thing (= thing.type "plate")))
+
 (lambda pot-create [x y]
   "Create the pot."
   (let [body (love.physics.newBody world x y "dynamic")
@@ -188,6 +203,22 @@ Return nil if PLAYER cannot grab anything."
      :held 0
      :cooking-time 0
      :spoilt false}))
+
+(lambda plate-create [x y]
+  "Create a plate."
+  (let [body (love.physics.newBody world x y "dynamic")
+        shape (love.physics.newCircleShape 15)
+        fixture (love.physics.newFixture body shape 1)]
+    (body:setLinearDamping 1)
+    (fixture:setRestitution 0.9)
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "plate"
+     : body
+     : shape
+     : fixture
+     :alive true
+     :is-filled false}))
 
 (fn counter-update [counter deltatime]
   "Update COUNTER."
@@ -207,6 +238,8 @@ Return nil if PLAYER cannot grab anything."
     (when (apple-p selected-thing)
       (player-handle-grab player selected-thing))
     (when (pot-p selected-thing)
+      (player-handle-grab player selected-thing))
+    (when (plate-p selected-thing)
       (player-handle-grab player selected-thing))
     (when (counter-p selected-thing)
       (if selected-thing.placed-on
@@ -334,7 +367,8 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (counter-create 1200 500 "chop"))
   (table.insert things (counter-create 200 500 "hob"))
   (table.insert things (counter-create 600 600 "box"))
-  (table.insert things (pot-create 600 500)))
+  (table.insert things (pot-create 600 500))
+  (table.insert things (plate-create 300 300)))
 
 (fn player-p [thing]
   "Return non-nil if THING is a player."
@@ -393,12 +427,10 @@ sensitive action, the player should not be placed-on anything."
       (counter-p thing)
       (counter-draw thing)
       (pot-p thing)
-      (pot-draw thing x y))
+      (pot-draw thing x y)
+      (plate-p thing)
+      (plate-draw thing x y))
   (if thing.placed-on
-      ;; instead of doing this whole placed on thing with the apple
-      ;; and the pot, trying to drop the apple on the pot should
-      ;; change some state within the pot, and the apple should be
-      ;; deleted.
       (thing-draw thing.placed-on (thing.body:getX) (thing.body:getY))))
 
 (fn love.draw []
