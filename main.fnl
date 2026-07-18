@@ -3,8 +3,6 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
-;; TODO: plates
-
 ;; TODO: sink
 
 ;; TODO: orders
