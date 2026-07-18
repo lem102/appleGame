@@ -256,6 +256,16 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        (= "bin" thing.type)))
 
+(fn pot-empty [pot]
+  "Empty POT."
+  (set pot.held 0)
+  (set pot.cooking-time 0)
+  (set pot.spoilt false))
+
+(fn plate-empty [plate]
+  "Empty PLATE."
+  (set plate.is-filled false))
+
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.placed-on]
@@ -264,22 +274,34 @@ Return nil if PLAYER cannot grab anything."
                                   ;; bin the contents of the pot instead of the pot itself
                                   (= player.placed-on.type "pot")
                                   (let [pot player.placed-on]
-                                    (set pot.held 0)
-                                    (set pot.cooking-time 0)
-                                    (set pot.spoilt false))
+                                    (pot-empty pot))
+                                  ;; bin the contents of the plate instead of the plate itself
+                                  (= player.placed-on.type "plate")
+                                  (let [plate player.placed-on]
+                                    (plate-empty plate))
                                   ;; bin what the player is holding
                                   (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
                                      (if
-                                      ;; place prepared food in pot on counter
                                       (and counter.placed-on
                                            (= counter.placed-on.type "pot"))
                                       (let [pot counter.placed-on]
-                                        (when (and player.placed-on.prepared
-                                                   (not pot.spoilt)) ; TODO: resolve repitition
-                                          (set pot.held
-                                               (+ pot.held 1))
-                                          (set player.placed-on nil)))
+                                        (if (and player.placed-on
+                                                 (= player.placed-on.type "plate"))
+                                            ;; place the contents of the pot into the plate
+                                            (let [plate player.placed-on]
+                                              (when (and (= pot.held 3)
+                                                         (> pot.cooking-time (pot-calculate-cooking-time pot))
+                                                         (not pot.spoilt)
+                                                         (not plate.is-filled)) ; TODO: resolve repitition
+                                                (pot-empty pot)
+                                                (set plate.is-filled true)))
+                                            ;; place prepared food in pot on counter
+                                            (and player.placed-on.prepared
+                                                 (not pot.spoilt)) ; TODO: resolve repitition
+                                            (do (set pot.held
+                                                     (+ pot.held 1))
+                                                (set player.placed-on nil))))
                                       (and (not counter.placed-on)
                                            ;; prevent non-pots from being placed on a hob
                                            (not (and (= counter.station "hob")
@@ -293,6 +315,15 @@ Return nil if PLAYER cannot grab anything."
                                    (set pot.held
                                         (+ pot.held 1))
                                    (set player.placed-on nil)))
+        (plate-p selected-thing) (let [plate selected-thing]
+                                   (when (= player.placed-on.type "pot")
+                                     (let [pot player.placed-on]
+                                       (when (and (= pot.held 3)
+                                                  (> pot.cooking-time (pot-calculate-cooking-time pot))
+                                                  (not pot.spoilt)
+                                                  (not plate.is-filled))
+                                         (pot-empty pot)
+                                         (set plate.is-filled true)))))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
