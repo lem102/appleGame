@@ -400,6 +400,7 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (counter-create 1200 500 "chop"))
   (table.insert things (counter-create 200 500 "hob"))
   (table.insert things (counter-create 600 600 "box"))
+  (table.insert things (counter-create 800 600 "delivery"))
   (table.insert things (pot-create 600 500))
   (table.insert things (plate-create 300 300)))
 
@@ -437,6 +438,10 @@ sensitive action, the player should not be placed-on anything."
                                (counter.body:getWorldPoints (counter.shape:getPoints))))
       (= counter.station "box")
       (with-colour 0 0 1
+        (love.graphics.polygon "fill"
+                               (counter.body:getWorldPoints (counter.shape:getPoints))))
+      (= counter.station "delivery")
+      (with-colour 1 1 0
         (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
 
