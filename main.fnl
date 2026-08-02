@@ -285,6 +285,10 @@ Return nil if PLAYER cannot grab anything."
                                   (set player.placed-on nil)))
         (counter-p selected-thing) (let [counter selected-thing]
                                      (if
+                                      (= counter.station "delivery")
+                                      (let [delivery counter]
+                                        (if (= player.placed-on.type "plate")
+                                            (set player.placed-on nil)))
                                       (and counter.placed-on
                                            (= counter.placed-on.type "pot"))
                                       (let [pot counter.placed-on]
