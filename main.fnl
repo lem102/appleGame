@@ -234,6 +234,11 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        (= "counter" thing.type)))
 
+(fn delivery-point-p [thing]
+  "Return t if THING is a delivery-point."
+  (and thing
+       (= "delivery-point" thing.type)))
+
 (fn player-grab [player selected-thing]
   "As PLAYER, grab SELECTED-THING."
   (when selected-thing
@@ -385,6 +390,19 @@ sensitive action, the player should not be placed-on anything."
      : shape
      : fixture}))
 
+(fn delivery-point-create [x y]
+  "Create a delivery point."
+  (let [body (love.physics.newBody world x y "static")
+        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "delivery-point"
+     :alive true
+     : body
+     : shape
+     : fixture}))
+
 (lambda bin-draw [bin]
   "Draw a bin"
   (with-colour 1 0 1
@@ -404,7 +422,7 @@ sensitive action, the player should not be placed-on anything."
   (table.insert things (counter-create 1200 500 "chop"))
   (table.insert things (counter-create 200 500 "hob"))
   (table.insert things (counter-create 600 600 "box"))
-  (table.insert things (counter-create 800 600 "delivery"))
+  (table.insert things (delivery-point-create 800 600))
   (table.insert things (pot-create 600 500))
   (table.insert things (plate-create 300 300)))
 
@@ -443,11 +461,13 @@ sensitive action, the player should not be placed-on anything."
       (= counter.station "box")
       (with-colour 0 0 1
         (love.graphics.polygon "fill"
-                               (counter.body:getWorldPoints (counter.shape:getPoints))))
-      (= counter.station "delivery")
-      (with-colour 1 1 0
-        (love.graphics.polygon "fill"
                                (counter.body:getWorldPoints (counter.shape:getPoints))))))
+
+(fn delivery-point-draw [delivery-point]
+  "Draw a delivery point."
+  (with-colour 1 1 0
+    (love.graphics.polygon "fill"
+                           (delivery-point.body:getWorldPoints (delivery-point.shape:getPoints)))))
 
 (lambda player-draw [player]
   (with-colour 0 1 0
@@ -468,6 +488,8 @@ sensitive action, the player should not be placed-on anything."
       (bin-draw thing)
       (counter-p thing)
       (counter-draw thing)
+      (delivery-point-p thing)
+      (delivery-point-draw thing)
       (pot-p thing)
       (pot-draw thing x y)
       (plate-p thing)
