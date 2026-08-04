@@ -288,7 +288,8 @@ Return nil if PLAYER cannot grab anything."
                                     (plate-empty plate))
                                   ;; bin what the player is holding
                                   (set player.placed-on nil)))
-        (delivery-point-p selected-thing) (when (= player.placed-on.type "plate")
+        (delivery-point-p selected-thing) (when (and (= player.placed-on.type "plate")
+                                                     player.placed-on.is-filled)
                                             (set player.placed-on.alive false)
                                             (set player.placed-on nil))
         (counter-p selected-thing) (let [counter selected-thing]
