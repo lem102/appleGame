@@ -238,6 +238,19 @@ Return nil if PLAYER cannot grab anything."
   "Return t if THING is a delivery-point."
   (and thing
        (= "delivery-point" thing.type)))
+(fn plate-return-update [plate-return deltatime]
+  "Update plate return timer and spawn plate."
+  (when plate-return.delivered
+    (set plate-return.timer (+ plate-return.timer deltatime))
+    (when (>= plate-return.timer 5) ;; 5 seconds to return
+      (set plate-return.timer 0)
+      (set plate-return.delivered false)
+      (table.insert things (plate-create (plate-return.body:getX) (plate-return.body:getY))))))
+
+(fn plate-return-p [thing]
+  "Return t if THING is a plate return station."
+  (and thing
+       (= "plate-return" thing.type)))
 
 (fn player-grab [player selected-thing]
   "As PLAYER, grab SELECTED-THING."
@@ -291,7 +304,10 @@ Return nil if PLAYER cannot grab anything."
         (delivery-point-p selected-thing) (when (and (= player.placed-on.type "plate")
                                                      player.placed-on.is-filled)
                                             (set player.placed-on.alive false)
-                                            (set player.placed-on nil))
+                                            (set player.placed-on nil)
+                                            (each [_ thing (ipairs things)]
+                                              (when (= thing.type "plate-return")
+                                                (set thing.delivered true))))
         (counter-p selected-thing) (let [counter selected-thing]
                                      (if
                                       (and counter.placed-on
@@ -390,6 +406,11 @@ sensitive action, the player should not be placed-on anything."
      : shape
      : fixture}))
 
+(fn plate-return-draw [station]
+  "Draw a plate return station."
+  (with-colour 0.5 0.5 0.5
+    (love.graphics.polygon "fill" (station.body:getWorldPoints (station.shape:getPoints)))))
+
 (fn delivery-point-create [x y]
   "Create a delivery point."
   (let [body (love.physics.newBody world x y "static")
@@ -402,6 +423,22 @@ sensitive action, the player should not be placed-on anything."
      : body
      : shape
      : fixture}))
+
+(lambda plate-return-create [x y]
+  "Create a plate return station."
+  (let [body (love.physics.newBody world x y "static")
+        shape (love.physics.newRectangleShape BOX_SIZE BOX_SIZE)
+        fixture (love.physics.newFixture body shape 1)]
+    (fixture:setCategory 1)
+    (fixture:setMask)
+    {:type "plate-return"
+     :alive true
+     :delivered false
+     :timer 0
+     :placed-on nil
+     :body body
+     :shape shape
+     :fixture fixture}))
 
 (lambda bin-draw [bin]
   "Draw a bin"
@@ -416,6 +453,7 @@ sensitive action, the player should not be placed-on anything."
   (set player (player-create))
   (table.insert things player)
   (table.insert things (apple-create 500 100))
+  (table.insert things (plate-return-create 100 100))
   (table.insert things (apple-create 100 500))
   (table.insert things (bin-create 900 100))
   (table.insert things (counter-create 1200 100))
@@ -434,7 +472,8 @@ sensitive action, the player should not be placed-on anything."
   "Update THING."
   (if (player-p thing) (player-update thing)
       ;; (pot-p thing) (pot-update thing deltatime)
-      (counter-p thing) (counter-update thing deltatime)))
+      (counter-p thing) (counter-update thing deltatime)
+      (plate-return-p thing) (plate-return-update thing deltatime)))
 
 (fn love.update [deltatime]
   (world:update deltatime)
@@ -488,6 +527,8 @@ sensitive action, the player should not be placed-on anything."
       (bin-draw thing)
       (counter-p thing)
       (counter-draw thing)
+      (plate-return-p thing)
+      (plate-return-draw thing)
       (delivery-point-p thing)
       (delivery-point-draw thing)
       (pot-p thing)
