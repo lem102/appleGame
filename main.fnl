@@ -79,7 +79,7 @@
 
 (fn pot-calculate-cooking-time [pot]
   "Return the amount of time it takes to cook the contents of POT in seconds."
-  (* 10 pot.held))
+  (* 10 (length pot.contents)))
 
 (fn pot-draw [pot x y]
   (let [pot-x (or x (pot.body:getX))
@@ -87,31 +87,33 @@
         radius (pot.shape:getRadius)]
     (with-colour 0.1 0.1 0.1
       (love.graphics.circle "fill" pot-x pot-y radius))
-    (when (> pot.held 0)
-      (with-colour 1 0 0
-        (love.graphics.circle "fill"
-                              pot-x
-                              pot-y
-                              (* radius
-                                 (if (= pot.held 1)
-                                     0.2
-                                     (= pot.held 2)
-                                     0.5
-                                     (>= pot.held 3)
-                                     0.8))))
-      (with-colour 1 1 1
-        (love.graphics.rectangle "fill"
-                                 (- pot-x radius)
-                                 (+ pot-y (* 1.2 radius))
-                                 (* 2 radius)
-                                 10))
-      (with-colour (if pot.spoilt 1 0) (if pot.spoilt 0 1) 0
-        (love.graphics.rectangle "fill"
-                                 (- pot-x radius)
-                                 (+ pot-y (* 1.2 radius))
-                                 (/ (* 2 radius) (math.max (/ (pot-calculate-cooking-time pot) pot.cooking-time)
-                                                           1))
-                                 10)))))
+    (let [held-amount (length pot.contents)]
+      (when (> held-amount 0)
+        (with-colour 1 0 0
+          (love.graphics.circle "fill"
+                                pot-x
+                                pot-y
+                                (* radius
+                                   (if (= held-amount 1)
+                                       0.2
+                                       (= held-amount 2)
+                                       0.5
+                                       (>= held-amount 3)
+                                       0.8))))
+        (with-colour 1 1 1
+          (love.graphics.rectangle "fill"
+                                   (- pot-x radius)
+                                   (+ pot-y (* 1.2 radius))
+                                   (* 2 radius)
+                                   10))
+        (with-colour (if pot.spoilt 1 0) (if pot.spoilt 0 1) 0
+          (love.graphics.rectangle "fill"
+                                   (- pot-x radius)
+                                   (+ pot-y (* 1.2 radius))
+                                   (/ (* 2 radius) (math.max (/ (pot-calculate-cooking-time pot) pot.cooking-time)
+                                                             1))
+                                   10)))
+      )))
 
 (fn plate-draw [plate x y]
   "Draw a plate."
@@ -174,7 +176,7 @@ Return nil if PLAYER cannot grab anything."
 
 (fn pot-update [pot deltatime]
   "Update time based properties of POT."
-  (when (and (not pot.spoilt) (> pot.held 0))
+  (when (and (not pot.spoilt) (> (length pot.contents) 0))
     (let [new-time (+ pot.cooking-time deltatime)]
       (set pot.cooking-time new-time)
       (when (> pot.cooking-time (* 1.5 (pot-calculate-cooking-time pot)))
@@ -205,11 +207,10 @@ Return nil if PLAYER cannot grab anything."
 
      ;; TODO: implement container duck type
      :contents []
-     :content-limit 1
+     :content-limit math.huge
      :content-filter (fn [pot thing] (and thing.prepared
                                           (not pot.spoilt)))
 
-     :held 0
      :cooking-time 0
      :spoilt false}))
 
@@ -286,7 +287,7 @@ Return nil if PLAYER cannot grab anything."
 
 (fn pot-empty [pot]
   "Empty POT."
-  (set pot.held 0)
+  (set pot.contents [])
   (set pot.cooking-time 0)
   (set pot.spoilt false))
 
@@ -319,7 +320,7 @@ Return nil if PLAYER cannot grab anything."
                                                  (= player.placed-on.type "plate"))
                                             ;; place the contents of the pot into the plate
                                             (let [plate player.placed-on]
-                                              (when (and (= pot.held 3)
+                                              (when (and (= (length pot.contents) 3)
                                                          (> pot.cooking-time (pot-calculate-cooking-time pot))
                                                          (not pot.spoilt)
                                                          (not plate.is-filled)) ; TODO: resolve repitition
@@ -328,8 +329,7 @@ Return nil if PLAYER cannot grab anything."
                                             ;; place prepared food in pot on counter
                                             (and player.placed-on.prepared
                                                  (not pot.spoilt)) ; TODO: resolve repitition
-                                            (do (set pot.held
-                                                     (+ pot.held 1))
+                                            (do (table.insert pot.contents player.placed-on)
                                                 (set player.placed-on nil))))
                                       (and (not counter.placed-on)
                                            ;; prevent non-pots from being placed on a hob
@@ -338,20 +338,14 @@ Return nil if PLAYER cannot grab anything."
                                       (do
                                         (set counter.placed-on player.placed-on)
                                         (set player.placed-on nil))))
-        (container? selected-thing) (do
-                                      (print "this is a container")
-                                      (print (selected-thing.content-filter selected-thing player.placed-on))
-                                      (print (< (length selected-thing.contents) selected-thing.content-limit))
-                                      (when (and (selected-thing.content-filter selected-thing player.placed-on)
-                                                 (< (length selected-thing.contents) selected-thing.content-limit))
-                                        (when (pot-p selected-thing) ; TODO: remove
-                                          (set selected-thing.held (+ selected-thing.held 1)))
-                                        (table.insert selected-thing.contents player.placed-on)
-                                        (set player.placed-on nil)))
+        (container? selected-thing) (when (and (selected-thing.content-filter selected-thing player.placed-on)
+                                               (< (length selected-thing.contents) selected-thing.content-limit))
+                                      (table.insert selected-thing.contents player.placed-on)
+                                      (set player.placed-on nil))
         (plate-p selected-thing) (let [plate selected-thing]
                                    (when (= player.placed-on.type "pot")
                                      (let [pot player.placed-on]
-                                       (when (and (= pot.held 3)
+                                       (when (and (= (length pot.contents) 3)
                                                   (> pot.cooking-time (pot-calculate-cooking-time pot))
                                                   (not pot.spoilt)
                                                   (not plate.is-filled))
