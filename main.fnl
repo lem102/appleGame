@@ -202,6 +202,13 @@ Return nil if PLAYER cannot grab anything."
      : shape
      : fixture
      :alive true
+
+     ;; TODO: implement container duck type
+     :contents []
+     :content-limit 1
+     :content-filter (fn [pot thing] (and thing.prepared
+                                          (not pot.spoilt)))
+
      :held 0
      :cooking-time 0
      :spoilt false}))
@@ -292,6 +299,13 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        thing.handle-sink-usage))
 
+(fn container? [thing]
+  "Return non-nil if THING is a container."
+  (and thing
+       thing.contents
+       thing.content-limit
+       thing.content-filter))
+
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.placed-on]
@@ -324,12 +338,16 @@ Return nil if PLAYER cannot grab anything."
                                       (do
                                         (set counter.placed-on player.placed-on)
                                         (set player.placed-on nil))))
-        (pot-p selected-thing) (let [pot selected-thing]
-                                 (when (and player.placed-on.prepared
-                                            (not pot.spoilt)) ; TODO: resolve repitition
-                                   (set pot.held
-                                        (+ pot.held 1))
-                                   (set player.placed-on nil)))
+        (container? selected-thing) (do
+                                      (print "this is a container")
+                                      (print (selected-thing.content-filter selected-thing player.placed-on))
+                                      (print (< (length selected-thing.contents) selected-thing.content-limit))
+                                      (when (and (selected-thing.content-filter selected-thing player.placed-on)
+                                                 (< (length selected-thing.contents) selected-thing.content-limit))
+                                        (when (pot-p selected-thing) ; TODO: remove
+                                          (set selected-thing.held (+ selected-thing.held 1)))
+                                        (table.insert selected-thing.contents player.placed-on)
+                                        (set player.placed-on nil)))
         (plate-p selected-thing) (let [plate selected-thing]
                                    (when (= player.placed-on.type "pot")
                                      (let [pot player.placed-on]
@@ -391,13 +409,6 @@ sensitive action, the player should not be placed-on anything."
      : shape
      : fixture}))
 
-(fn container? [thing]
-  "Return non-nil if THING is a container."
-  (and thing
-       thing.contents
-       thing.content-limit
-       thing.content-filter))
-
 (fn counter-create [x y station]
   "Create a counter."
   (let [body (love.physics.newBody world x y "static")
@@ -408,12 +419,6 @@ sensitive action, the player should not be placed-on anything."
     {:type "counter"
      :alive true
      :placed-on nil
-
-     ;; TODO: implement container duck type
-     :contents []
-     :content-limit 1
-     :content-filter (fn [thing] true)
-
      : station
      : body
      : shape
