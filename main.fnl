@@ -238,6 +238,7 @@ Return nil if PLAYER cannot grab anything."
   "Return t if THING is a delivery-point."
   (and thing
        (= "delivery-point" thing.type)))
+
 (fn plate-return-update [plate-return deltatime]
   "Update plate return timer and spawn plate."
   (when plate-return.delivered
@@ -286,28 +287,15 @@ Return nil if PLAYER cannot grab anything."
   "Empty PLATE."
   (set plate.is-filled false))
 
+(fn sink? [thing]
+  "Return non-nil if THING is a sink."
+  (and thing
+       thing.handle-sink-usage))
+
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.placed-on]
-    (if (bin-p selected-thing) (let [bin selected-thing]
-                                 (if
-                                  ;; bin the contents of the pot instead of the pot itself
-                                  (= player.placed-on.type "pot")
-                                  (let [pot player.placed-on]
-                                    (pot-empty pot))
-                                  ;; bin the contents of the plate instead of the plate itself
-                                  (= player.placed-on.type "plate")
-                                  (let [plate player.placed-on]
-                                    (plate-empty plate))
-                                  ;; bin what the player is holding
-                                  (set player.placed-on nil)))
-        (delivery-point-p selected-thing) (when (and (= player.placed-on.type "plate")
-                                                     player.placed-on.is-filled)
-                                            (set player.placed-on.alive false)
-                                            (set player.placed-on nil)
-                                            (each [_ thing (ipairs things)]
-                                              (when (= thing.type "plate-return")
-                                                (set thing.delivered true))))
+    (if (sink? selected-thing) (selected-thing.handle-sink-usage player)
         (counter-p selected-thing) (let [counter selected-thing]
                                      (if
                                       (and counter.placed-on
@@ -387,9 +375,28 @@ sensitive action, the player should not be placed-on anything."
     (fixture:setMask)
     {:type "bin"
      :alive true
+     :handle-sink-usage (fn [player]
+                          (if
+                           ;; bin the contents of the pot instead of the pot itself
+                           (= player.placed-on.type "pot")
+                           (let [pot player.placed-on]
+                             (pot-empty pot))
+                           ;; bin the contents of the plate instead of the plate itself
+                           (= player.placed-on.type "plate")
+                           (let [plate player.placed-on]
+                             (plate-empty plate))
+                           ;; bin what the player is holding
+                           (set player.placed-on nil)))
      : body
      : shape
      : fixture}))
+
+(fn container? [thing]
+  "Return non-nil if THING is a container."
+  (and thing
+       thing.contents
+       thing.content-limit
+       thing.content-filter))
 
 (fn counter-create [x y station]
   "Create a counter."
@@ -401,6 +408,12 @@ sensitive action, the player should not be placed-on anything."
     {:type "counter"
      :alive true
      :placed-on nil
+
+     ;; TODO: implement container duck type
+     :contents []
+     :content-limit 1
+     :content-filter (fn [thing] true)
+
      : station
      : body
      : shape
@@ -420,6 +433,16 @@ sensitive action, the player should not be placed-on anything."
     (fixture:setMask)
     {:type "delivery-point"
      :alive true
+
+     :handle-sink-usage (fn [player]
+                          (when (and (= player.placed-on.type "plate")
+                                     player.placed-on.is-filled)
+                            (set player.placed-on.alive false)
+                            (set player.placed-on nil)
+                            (each [_ thing (ipairs things)]
+                              (when (= thing.type "plate-return")
+                                (set thing.delivered true)))))
+
      : body
      : shape
      : fixture}))
