@@ -3,6 +3,11 @@
 ;; current goal is to be able to recreate the first overcooked level,
 ;; where onions are chopped to create onion soup.
 
+;; TODO: refactor to duck typing:
+;;
+;; - sinks (bin, delivery point)
+;; - containers (pot, plate, counter)
+
 ;; TODO: delivery point
 
 ;; TODO: dirty plates
@@ -205,11 +210,11 @@ Return nil if PLAYER cannot grab anything."
      : fixture
      :alive true
 
-     ;; TODO: implement container duck type
      :contents []
      :content-limit math.huge
-     :content-filter (fn [pot thing] (and thing.prepared
-                                          (not pot.spoilt)))
+     :content-filter (fn [pot thing]
+                       (and thing.prepared
+                            (not pot.spoilt)))
 
      :cooking-time 0
      :spoilt false}))
@@ -227,6 +232,18 @@ Return nil if PLAYER cannot grab anything."
      : body
      : shape
      : fixture
+
+
+     :contents []
+     :content-limit math.huge
+     :content-filter (fn [plate thing]
+                       (when (= thing.type "pot")
+                         (let [pot thing]
+                           (and (= (length pot.contents) 3)
+                                (> pot.cooking-time (pot-calculate-cooking-time pot))
+                                (not pot.spoilt)
+                                (not plate.is-filled)))))
+
      :alive true
      :is-filled false}))
 
@@ -341,16 +358,10 @@ Return nil if PLAYER cannot grab anything."
         (container? selected-thing) (when (and (selected-thing.content-filter selected-thing player.placed-on)
                                                (< (length selected-thing.contents) selected-thing.content-limit))
                                       (table.insert selected-thing.contents player.placed-on)
+                                      (when (plate-p selected-thing) ; TODO: remove
+                                        (pot-empty player.placed-on)
+                                        (set selected-thing.is-filled true))
                                       (set player.placed-on nil))
-        (plate-p selected-thing) (let [plate selected-thing]
-                                   (when (= player.placed-on.type "pot")
-                                     (let [pot player.placed-on]
-                                       (when (and (= (length pot.contents) 3)
-                                                  (> pot.cooking-time (pot-calculate-cooking-time pot))
-                                                  (not pot.spoilt)
-                                                  (not plate.is-filled))
-                                         (pot-empty pot)
-                                         (set plate.is-filled true)))))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
