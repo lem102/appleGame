@@ -117,8 +117,7 @@
                                    (+ pot-y (* 1.2 radius))
                                    (/ (* 2 radius) (math.max (/ (pot-calculate-cooking-time pot) pot.cooking-time)
                                                              1))
-                                   10)))
-      )))
+                                   10))))))
 
 (fn plate-draw [plate x y]
   "Draw a plate."
@@ -127,7 +126,7 @@
         radius (plate.shape:getRadius)]
     (with-colour 1 1 1
       (love.graphics.circle "fill" plate-x plate-y radius))
-    (when plate.is-filled
+    (when (< 0 (length plate.contents))
       (with-colour 1 0 0
         (love.graphics.circle "fill" plate-x plate-y (- radius 10))))))
 
@@ -242,10 +241,9 @@ Return nil if PLAYER cannot grab anything."
                            (and (= (length pot.contents) 3)
                                 (> pot.cooking-time (pot-calculate-cooking-time pot))
                                 (not pot.spoilt)
-                                (not plate.is-filled)))))
+                                (not (< 0 (length plate.contents)))))))
 
-     :alive true
-     :is-filled false}))
+     :alive true}))
 
 (fn counter-update [counter deltatime]
   "Update COUNTER."
@@ -310,7 +308,7 @@ Return nil if PLAYER cannot grab anything."
 
 (fn plate-empty [plate]
   "Empty PLATE."
-  (set plate.is-filled false))
+  (set plate.contents []))
 
 (fn sink? [thing]
   "Return non-nil if THING is a sink."
@@ -340,9 +338,15 @@ Return nil if PLAYER cannot grab anything."
                                               (when (and (= (length pot.contents) 3)
                                                          (> pot.cooking-time (pot-calculate-cooking-time pot))
                                                          (not pot.spoilt)
-                                                         (not plate.is-filled)) ; TODO: resolve repitition
-                                                (pot-empty pot)
-                                                (set plate.is-filled true)))
+                                                         (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
+                                                (print plate.contents)
+                                                (print selected-thing.contents)
+                                                (table.move plate.contents
+                                                            1
+                                                            (length plate.contents)
+                                                            (length selected-thing.contents)
+                                                            selected-thing.contents)
+                                                (pot-empty pot)))
                                             ;; place prepared food in pot on counter
                                             (and player.placed-on.prepared
                                                  (not pot.spoilt)) ; TODO: resolve repitition
@@ -357,11 +361,33 @@ Return nil if PLAYER cannot grab anything."
                                         (set player.placed-on nil))))
         (container? selected-thing) (when (and (selected-thing.content-filter selected-thing player.placed-on)
                                                (< (length selected-thing.contents) selected-thing.content-limit))
-                                      (table.insert selected-thing.contents player.placed-on)
-                                      (when (plate-p selected-thing) ; TODO: remove
-                                        (pot-empty player.placed-on)
-                                        (set selected-thing.is-filled true))
-                                      (set player.placed-on nil))
+                                      (if (container? player.placed-on)
+                                          ;; the player is holding a container so the contents of
+                                          ;; the held container want to be transferred to the
+                                          ;; selected container
+                                          (do
+                                            (table.move player.placed-on.contents
+                                                        1
+                                                        (length player.placed-on.contents)
+                                                        (length selected-thing.contents)
+                                                        selected-thing.contents)
+                                            ;; TODO: think about how to flexibly empty containers
+                                            (set player.placed-on.contents []))
+                                          ;; otherwise, add what the player is holding to the
+                                          ;; contents of the selected-thing
+                                          (do
+                                            (table.insert selected-thing.contents player.placed-on)
+                                            (set player.placed-on nil)))
+                                      ;; (when (plate-p selected-thing) ; TODO: remove
+                                      ;;   (pot-empty player.placed-on)
+                                      ;;   (table.move player.placed-on.contents
+                                      ;;               0
+                                      ;;               (- (length player.placed-on.contents)
+                                      ;;                  1)
+                                      ;;               (- (length selected-thing.contents)
+                                      ;;                  1)
+                                      ;;               selected-thing.contents))
+                                      )
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
@@ -446,7 +472,7 @@ sensitive action, the player should not be placed-on anything."
 
      :handle-sink-usage (fn [player]
                           (when (and (= player.placed-on.type "plate")
-                                     player.placed-on.is-filled)
+                                     (< 0 (length player.placed-on.contents)))
                             (set player.placed-on.alive false)
                             (set player.placed-on nil)
                             (each [_ thing (ipairs things)]
