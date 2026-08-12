@@ -322,6 +322,8 @@ Return nil if PLAYER cannot grab anything."
        thing.content-limit
        thing.content-filter))
 
+;; FIXME: pot is not reset when plate on ground is filled and pot is in player's hands
+
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.placed-on]
