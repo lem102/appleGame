@@ -339,13 +339,11 @@ Return nil if PLAYER cannot grab anything."
                                                          (> pot.cooking-time (pot-calculate-cooking-time pot))
                                                          (not pot.spoilt)
                                                          (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
-                                                (print plate.contents)
-                                                (print selected-thing.contents)
-                                                (table.move plate.contents
+                                                (table.move pot.contents
                                                             1
+                                                            (length pot.contents)
                                                             (length plate.contents)
-                                                            (length selected-thing.contents)
-                                                            selected-thing.contents)
+                                                            plate.contents)
                                                 (pot-empty pot)))
                                             ;; place prepared food in pot on counter
                                             (and player.placed-on.prepared
@@ -372,22 +370,14 @@ Return nil if PLAYER cannot grab anything."
                                                         (length selected-thing.contents)
                                                         selected-thing.contents)
                                             ;; TODO: think about how to flexibly empty containers
+                                            (when (pot-p selected-thing)
+                                              (pot-empty selected-thing))
                                             (set player.placed-on.contents []))
                                           ;; otherwise, add what the player is holding to the
                                           ;; contents of the selected-thing
                                           (do
                                             (table.insert selected-thing.contents player.placed-on)
-                                            (set player.placed-on nil)))
-                                      ;; (when (plate-p selected-thing) ; TODO: remove
-                                      ;;   (pot-empty player.placed-on)
-                                      ;;   (table.move player.placed-on.contents
-                                      ;;               0
-                                      ;;               (- (length player.placed-on.contents)
-                                      ;;                  1)
-                                      ;;               (- (length selected-thing.contents)
-                                      ;;                  1)
-                                      ;;               selected-thing.contents))
-                                      )
+                                            (set player.placed-on nil))))
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
