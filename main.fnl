@@ -235,34 +235,30 @@ for counters."
   (let [counter container]
     (if
      (and counter.placed-on
-          (= counter.placed-on.type "pot"))
-     (let [pot counter.placed-on]
-       (if (and player.placed-on
-                (= player.placed-on.type "plate"))
-           ;; place the contents of the pot into the plate
-           (let [plate player.placed-on]
-             (when (and (= (length pot.contents) 3)
-                        (> pot.cooking-time (pot-calculate-cooking-time pot))
-                        (not pot.spoilt)
-                        (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
-               (table.move pot.contents
-                           1
-                           (length pot.contents)
-                           (length plate.contents)
-                           plate.contents)
-               (pot-empty pot)))
-           ;; place prepared food in pot on counter
-           (and player.placed-on.prepared
-                (not pot.spoilt)) ; TODO: resolve repitition
-           (do (table.insert pot.contents player.placed-on)
-               (set player.placed-on nil))))
-     (and (not counter.placed-on)
-          ;; prevent non-pots from being placed on a hob
-          (not (and (= counter.station "hob")
-                    (not (= player.placed-on.type "pot")))))
-     (do
-       (set counter.placed-on player.placed-on)
-       (set player.placed-on nil)))))
+          (= counter.placed-on.type "pot")) (let [pot counter.placed-on]
+                                              (if ;; place the contents of the pot into the plate
+                                               (and player.placed-on
+                                                    (= player.placed-on.type "plate")) (let [plate player.placed-on]
+                                                                                         (when (and (= (length pot.contents) 3)
+                                                                                                    (> pot.cooking-time (pot-calculate-cooking-time pot))
+                                                                                                    (not pot.spoilt)
+                                                                                                    (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
+                                                                                           (table.move pot.contents
+                                                                                                       1
+                                                                                                       (length pot.contents)
+                                                                                                       (length plate.contents)
+                                                                                                       plate.contents)
+                                                                                           (pot-empty pot)))
+                                                    ;; place prepared food in pot on counter
+                                                    ;; TODO: resolve repitition
+                                                    (and player.placed-on.prepared
+                                                         (not pot.spoilt)) (do (table.insert pot.contents player.placed-on)
+                                                                               (set player.placed-on nil))))
+          (and (not counter.placed-on)
+               ;; prevent non-pots from being placed on a hob
+               (not (and (= counter.station "hob")
+                         (not (= player.placed-on.type "pot"))))) (do (set counter.placed-on player.placed-on)
+                                                                      (set player.placed-on nil)))))
 
 (lambda pot-create [x y]
   "Create the pot."
