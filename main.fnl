@@ -4,9 +4,7 @@
 ;; where onions are chopped to create onion soup.
 
 ;; TODO: refactor to duck typing:
-;;
-;; - sinks (bin, delivery point)
-;; - containers (pot, plate, counter)
+;; all are one, there are only containers
 
 ;; TODO: delivery point
 
@@ -194,6 +192,78 @@ Return nil if PLAYER cannot grab anything."
   "Return non-nil if THING is a plate."
   (and thing (= thing.type "plate")))
 
+(fn container? [thing]
+  "Return non-nil if THING is a container."
+  (and thing
+       thing.contain))
+
+(fn pot-empty [pot]
+  "Empty POT."
+  (set pot.contents [])
+  (set pot.cooking-time 0)
+  (set pot.spoilt false))
+
+(fn standard-contain-function [container player]
+  "Attempts to put what PLAYER is holding in CONTAINER."
+  (let [thing player.placed-on]
+    (when (and (container:content-filter thing)
+               (< (length container.contents) container.content-limit))
+      (if (container? thing)
+          ;; the player is holding a container so the contents of
+          ;; the held container want to be transferred to the
+          ;; selected container
+          (do
+            (table.move thing.contents
+                        1
+                        (length thing.contents)
+                        (length container.contents)
+                        container.contents)
+            ;; TODO: think about how to flexibly empty containers
+            (when (pot-p thing)
+              (pot-empty thing))
+            (set thing.contents []))
+          ;; otherwise, add what the player is holding to the
+          ;; contents of the container
+          (do
+            (table.insert container.contents thing)
+            (set player.placed-on nil))))))
+
+(fn counter-contain-function [container player]
+  "Attempts to put what PLAYER is holding in CONTAINER. More specialised
+for counters."
+  ;; TODO: refactor this sucker
+  (let [counter container]
+    (if
+     (and counter.placed-on
+          (= counter.placed-on.type "pot"))
+     (let [pot counter.placed-on]
+       (if (and player.placed-on
+                (= player.placed-on.type "plate"))
+           ;; place the contents of the pot into the plate
+           (let [plate player.placed-on]
+             (when (and (= (length pot.contents) 3)
+                        (> pot.cooking-time (pot-calculate-cooking-time pot))
+                        (not pot.spoilt)
+                        (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
+               (table.move pot.contents
+                           1
+                           (length pot.contents)
+                           (length plate.contents)
+                           plate.contents)
+               (pot-empty pot)))
+           ;; place prepared food in pot on counter
+           (and player.placed-on.prepared
+                (not pot.spoilt)) ; TODO: resolve repitition
+           (do (table.insert pot.contents player.placed-on)
+               (set player.placed-on nil))))
+     (and (not counter.placed-on)
+          ;; prevent non-pots from being placed on a hob
+          (not (and (= counter.station "hob")
+                    (not (= player.placed-on.type "pot")))))
+     (do
+       (set counter.placed-on player.placed-on)
+       (set player.placed-on nil)))))
+
 (lambda pot-create [x y]
   "Create the pot."
   (let [body (love.physics.newBody world x y "dynamic")
@@ -214,6 +284,8 @@ Return nil if PLAYER cannot grab anything."
      :content-filter (fn [pot thing]
                        (and thing.prepared
                             (not pot.spoilt)))
+
+     :contain standard-contain-function
 
      :cooking-time 0
      :spoilt false}))
@@ -242,6 +314,8 @@ Return nil if PLAYER cannot grab anything."
                                 (> pot.cooking-time (pot-calculate-cooking-time pot))
                                 (not pot.spoilt)
                                 (not (< 0 (length plate.contents)))))))
+
+     :contain standard-contain-function
 
      :alive true}))
 
@@ -300,84 +374,14 @@ Return nil if PLAYER cannot grab anything."
   (and thing
        (= "bin" thing.type)))
 
-(fn pot-empty [pot]
-  "Empty POT."
-  (set pot.contents [])
-  (set pot.cooking-time 0)
-  (set pot.spoilt false))
-
 (fn plate-empty [plate]
   "Empty PLATE."
   (set plate.contents []))
 
-(fn sink? [thing]
-  "Return non-nil if THING is a sink."
-  (and thing
-       thing.handle-sink-usage))
-
-(fn container? [thing]
-  "Return non-nil if THING is a container."
-  (and thing
-       thing.contents
-       thing.content-limit
-       thing.content-filter))
-
 (fn player-drop [player selected-thing]
   "As PLAYER, drop the currently held thing."
   (let [thing player.placed-on]
-    (if (sink? selected-thing) (selected-thing.handle-sink-usage player)
-        (counter-p selected-thing) (let [counter selected-thing]
-                                     (if
-                                      (and counter.placed-on
-                                           (= counter.placed-on.type "pot"))
-                                      (let [pot counter.placed-on]
-                                        (if (and player.placed-on
-                                                 (= player.placed-on.type "plate"))
-                                            ;; place the contents of the pot into the plate
-                                            (let [plate player.placed-on]
-                                              (when (and (= (length pot.contents) 3)
-                                                         (> pot.cooking-time (pot-calculate-cooking-time pot))
-                                                         (not pot.spoilt)
-                                                         (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
-                                                (table.move pot.contents
-                                                            1
-                                                            (length pot.contents)
-                                                            (length plate.contents)
-                                                            plate.contents)
-                                                (pot-empty pot)))
-                                            ;; place prepared food in pot on counter
-                                            (and player.placed-on.prepared
-                                                 (not pot.spoilt)) ; TODO: resolve repitition
-                                            (do (table.insert pot.contents player.placed-on)
-                                                (set player.placed-on nil))))
-                                      (and (not counter.placed-on)
-                                           ;; prevent non-pots from being placed on a hob
-                                           (not (and (= counter.station "hob")
-                                                     (not (= player.placed-on.type "pot")))))
-                                      (do
-                                        (set counter.placed-on player.placed-on)
-                                        (set player.placed-on nil))))
-        (container? selected-thing) (when (and (selected-thing.content-filter selected-thing player.placed-on)
-                                               (< (length selected-thing.contents) selected-thing.content-limit))
-                                      (if (container? player.placed-on)
-                                          ;; the player is holding a container so the contents of
-                                          ;; the held container want to be transferred to the
-                                          ;; selected container
-                                          (do
-                                            (table.move player.placed-on.contents
-                                                        1
-                                                        (length player.placed-on.contents)
-                                                        (length selected-thing.contents)
-                                                        selected-thing.contents)
-                                            ;; TODO: think about how to flexibly empty containers
-                                            (when (pot-p player.placed-on)
-                                              (pot-empty player.placed-on))
-                                            (set player.placed-on.contents []))
-                                          ;; otherwise, add what the player is holding to the
-                                          ;; contents of the selected-thing
-                                          (do
-                                            (table.insert selected-thing.contents player.placed-on)
-                                            (set player.placed-on nil))))
+    (if (container? selected-thing) (selected-thing:contain player)
         (do
           (thing.fixture:setMask)
           (set player.placed-on nil)
@@ -414,18 +418,19 @@ sensitive action, the player should not be placed-on anything."
     (fixture:setMask)
     {:type "bin"
      :alive true
-     :handle-sink-usage (fn [player]
-                          (if
-                           ;; bin the contents of the pot instead of the pot itself
-                           (= player.placed-on.type "pot")
-                           (let [pot player.placed-on]
-                             (pot-empty pot))
-                           ;; bin the contents of the plate instead of the plate itself
-                           (= player.placed-on.type "plate")
-                           (let [plate player.placed-on]
-                             (plate-empty plate))
-                           ;; bin what the player is holding
-                           (set player.placed-on nil)))
+
+     :contain (fn [bin player]
+                (if
+                 ;; bin the contents of the pot instead of the pot itself
+                 (= player.placed-on.type "pot")
+                 (let [pot player.placed-on]
+                   (pot-empty pot))
+                 ;; bin the contents of the plate instead of the plate itself
+                 (= player.placed-on.type "plate")
+                 (let [plate player.placed-on]
+                   (plate-empty plate))
+                 ;; bin what the player is holding
+                 (set player.placed-on nil)))
      : body
      : shape
      : fixture}))
@@ -443,7 +448,11 @@ sensitive action, the player should not be placed-on anything."
      : station
      : body
      : shape
-     : fixture}))
+     : fixture
+
+     :contain counter-contain-function
+
+     }))
 
 (fn plate-return-draw [station]
   "Draw a plate return station."
@@ -460,14 +469,14 @@ sensitive action, the player should not be placed-on anything."
     {:type "delivery-point"
      :alive true
 
-     :handle-sink-usage (fn [player]
-                          (when (and (= player.placed-on.type "plate")
-                                     (< 0 (length player.placed-on.contents)))
-                            (set player.placed-on.alive false)
-                            (set player.placed-on nil)
-                            (each [_ thing (ipairs things)]
-                              (when (= thing.type "plate-return")
-                                (set thing.delivered true)))))
+     :contain (fn [delivery-point player]
+                (when (and (= player.placed-on.type "plate")
+                           (< 0 (length player.placed-on.contents)))
+                  (set player.placed-on.alive false)
+                  (set player.placed-on nil)
+                  (each [_ thing (ipairs things)]
+                    (when (= thing.type "plate-return")
+                      (set thing.delivered true)))))
 
      : body
      : shape
