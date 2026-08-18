@@ -203,62 +203,88 @@ Return nil if PLAYER cannot grab anything."
   (set pot.cooking-time 0)
   (set pot.spoilt false))
 
+(fn container-empty? [container]
+  "Return t if CONTAINER is empty."
+  (> (length container.contents) 0))
+
+(fn container-transfer [a b]
+  "Transfer contents of container A to B."
+  (table.move a.contents
+              1
+              (length a.contents)
+              1
+              b.contents)
+  (set a.contents []))
+
 (fn standard-contain-function [container player]
   "Attempts to put what PLAYER is holding in CONTAINER."
-  (let [thing player.placed-on]
-    (when (and (container:content-filter thing)
-               (< (length container.contents) container.content-limit))
-      (if (container? thing)
+  (let [player-holding player.placed-on]
+    (print container.type)
+    (print player-holding.type)
+    (print (container.content-filter container player-holding))
+
+    ;; 18/08/26 plan
+
+    ;; 1. alter this function to switch on the container types first and then perform filtering
+    ;; 2. identify which branch requires existering filtering
+    ;; 3. reintroduce existering filtering on that branch with a more appropriate name perhaps incoming or outgoing
+    ;; 4. introduce new kind of filtering on the other container related branch
+
+    (when (< (length container.contents) container.content-limit)
+      (print "a")
+      (if (and (container? player-holding)
+               (container-empty? player-holding)
+               (not (container-empty? container))
+               (container.content-filter container player-holding))
+          (do
+            (print "b1")
+            (container-transfer player-holding container)
+            (print (length container.contents))
+            (print (length player-holding.contents))
+            ;; TODO: think about how to flexibly empty containers
+            (when (pot-p player-holding)
+              (print "c1")
+              (pot-empty player-holding))
+            (print "d1"))
+          (and (container? player-holding)
+               (not (container-empty? player-holding))
+               (container-empty? container))
           ;; the player is holding a container so the contents of
           ;; the held container want to be transferred to the
           ;; selected container
           (do
-            (table.move thing.contents
-                        1
-                        (length thing.contents)
-                        (length container.contents)
-                        container.contents)
+            (print "b2")
+            (container-transfer container player-holding)
             ;; TODO: think about how to flexibly empty containers
-            (when (pot-p thing)
-              (pot-empty thing))
-            (set thing.contents []))
+            (when (pot-p container)
+              (print "c2")
+              (pot-empty container))
+            (print "d2"))
           ;; otherwise, add what the player is holding to the
           ;; contents of the container
           (do
-            (table.insert container.contents thing)
-            (set player.placed-on nil))))))
+            (when (container.content-filter container player-holding)
+              (print "e")
+              (table.insert container.contents player-holding)
+              (set player.placed-on nil)))))))
 
-(fn counter-contain-function [container player]
-  "Attempts to put what PLAYER is holding in CONTAINER. More specialised
+(fn counter-contain-function [counter player]
+  "Attempts to put what PLAYER is holding in COUNTER. More specialised
 for counters."
-  ;; TODO: refactor this sucker
-  (let [counter container]
-    (if
-     (and counter.placed-on
-          (= counter.placed-on.type "pot")) (let [pot counter.placed-on]
-                                              (if ;; place the contents of the pot into the plate
-                                               (and player.placed-on
-                                                    (= player.placed-on.type "plate")) (let [plate player.placed-on]
-                                                                                         (when (and (= (length pot.contents) 3)
-                                                                                                    (> pot.cooking-time (pot-calculate-cooking-time pot))
-                                                                                                    (not pot.spoilt)
-                                                                                                    (not (> 0 (length plate.contents)))) ; TODO: resolve repitition
-                                                                                           (table.move pot.contents
-                                                                                                       1
-                                                                                                       (length pot.contents)
-                                                                                                       (length plate.contents)
-                                                                                                       plate.contents)
-                                                                                           (pot-empty pot)))
-                                                    ;; place prepared food in pot on counter
-                                                    ;; TODO: resolve repitition
-                                                    (and player.placed-on.prepared
-                                                         (not pot.spoilt)) (do (table.insert pot.contents player.placed-on)
-                                                                               (set player.placed-on nil))))
-          (and (not counter.placed-on)
-               ;; prevent non-pots from being placed on a hob
-               (not (and (= counter.station "hob")
-                         (not (= player.placed-on.type "pot"))))) (do (set counter.placed-on player.placed-on)
-                                                                      (set player.placed-on nil)))))
+  (if
+   (container? counter.placed-on) (let [counter-container counter.placed-on]
+                                    (counter-container:contain player))
+   (and (not counter.placed-on)
+        ;; prevent non-pots from being placed on a hob
+        (not (and (= counter.station "hob")
+                  (not (= player.placed-on.type "pot"))))) (do (set counter.placed-on player.placed-on)
+                                                               (set player.placed-on nil))))
+
+;; FIXME: i can get something out of a pot on a plate when the pot has not finished cooking
+
+;; it is possible that the content-filters no longer make sense!
+
+;; do we want to have a content filter for incoming items and a content filter for outgoing items?
 
 (lambda pot-create [x y]
   "Create the pot."
@@ -278,8 +304,10 @@ for counters."
      :contents []
      :content-limit math.huge
      :content-filter (fn [pot thing]
-                       (and thing.prepared
-                            (not pot.spoilt)))
+                       (print "pot content filter")
+                       (or (container? thing)
+                           (and thing.prepared
+                                (not pot.spoilt))))
 
      :contain standard-contain-function
 
@@ -304,12 +332,13 @@ for counters."
      :contents []
      :content-limit math.huge
      :content-filter (fn [plate thing]
+                       (print "plate content filter")
                        (when (= thing.type "pot")
                          (let [pot thing]
                            (and (= (length pot.contents) 3)
                                 (> pot.cooking-time (pot-calculate-cooking-time pot))
                                 (not pot.spoilt)
-                                (not (< 0 (length plate.contents)))))))
+                                (not (container-empty? plate))))))
 
      :contain standard-contain-function
 
