@@ -205,7 +205,7 @@ Return nil if PLAYER cannot grab anything."
 
 (fn container-empty? [container]
   "Return t if CONTAINER is empty."
-  (> (length container.contents) 0))
+  (= (length container.contents) 0))
 
 (fn container-transfer [a b]
   "Transfer contents of container A to B."
@@ -219,54 +219,49 @@ Return nil if PLAYER cannot grab anything."
 (fn standard-contain-function [container player]
   "Attempts to put what PLAYER is holding in CONTAINER."
   (let [player-holding player.placed-on]
-    (print container.type)
-    (print player-holding.type)
-    (print (container.content-filter container player-holding))
-
     ;; 18/08/26 plan
 
     ;; 1. alter this function to switch on the container types first and then perform filtering
-    ;; 2. identify which branch requires existering filtering
-    ;; 3. reintroduce existering filtering on that branch with a more appropriate name perhaps incoming or outgoing
+    ;; 2. identify which branch requires existing filtering
+    ;; 3. reintroduce existing filtering on that branch with a more appropriate name perhaps incoming or outgoing
     ;; 4. introduce new kind of filtering on the other container related branch
 
     (when (< (length container.contents) container.content-limit)
-      (print "a")
       (if (and (container? player-holding)
                (container-empty? player-holding)
                (not (container-empty? container))
-               (container.content-filter container player-holding))
+               (player-holding.content-filter player-holding container))
           (do
-            (print "b1")
-            (container-transfer player-holding container)
-            (print (length container.contents))
-            (print (length player-holding.contents))
+            (print "move content from target to player")
+            (container-transfer container player-holding)
             ;; TODO: think about how to flexibly empty containers
-            (when (pot-p player-holding)
-              (print "c1")
-              (pot-empty player-holding))
-            (print "d1"))
+            (when (pot-p container)
+              (pot-empty container)))
           (and (container? player-holding)
                (not (container-empty? player-holding))
-               (container-empty? container))
+               (container-empty? container)
+	           (container.content-filter container player-holding))
           ;; the player is holding a container so the contents of
           ;; the held container want to be transferred to the
           ;; selected container
           (do
-            (print "b2")
-            (container-transfer container player-holding)
+            (print "move content from player to target")
+            (print (container? player-holding))
+            (print (not (container-empty? player-holding)))
+            (print (container-empty? container))
+	        (print (container.content-filter container player-holding))
+            (container-transfer player-holding container)
             ;; TODO: think about how to flexibly empty containers
             (when (pot-p container)
-              (print "c2")
-              (pot-empty container))
-            (print "d2"))
+              (pot-empty container)))
           ;; otherwise, add what the player is holding to the
           ;; contents of the container
+          (and (not (container? player-holding))
+               (container.content-filter container player-holding))
           (do
-            (when (container.content-filter container player-holding)
-              (print "e")
-              (table.insert container.contents player-holding)
-              (set player.placed-on nil)))))))
+            (print "move item from player to target")
+            (table.insert container.contents player-holding)
+            (set player.placed-on nil))))))
 
 (fn counter-contain-function [counter player]
   "Attempts to put what PLAYER is holding in COUNTER. More specialised
@@ -333,12 +328,16 @@ for counters."
      :content-limit math.huge
      :content-filter (fn [plate thing]
                        (print "plate content filter")
+                       (print thing.type)
                        (when (= thing.type "pot")
                          (let [pot thing]
+                           (print (= (length pot.contents) 3))
+                           (print (> pot.cooking-time (pot-calculate-cooking-time pot)))
+                           (print (not pot.spoilt))
+                           (print (not (container-empty? plate)))
                            (and (= (length pot.contents) 3)
                                 (> pot.cooking-time (pot-calculate-cooking-time pot))
-                                (not pot.spoilt)
-                                (not (container-empty? plate))))))
+                                (not pot.spoilt)))))
 
      :contain standard-contain-function
 
