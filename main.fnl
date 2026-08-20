@@ -246,14 +246,10 @@ Return nil if PLAYER cannot grab anything."
           ;; selected container
           (do
             (print "move content from player to target")
-            (print (container? player-holding))
-            (print (not (container-empty? player-holding)))
-            (print (container-empty? container))
-	        (print (container.content-filter container player-holding))
             (container-transfer player-holding container)
             ;; TODO: think about how to flexibly empty containers
-            (when (pot-p container)
-              (pot-empty container)))
+            (when (pot-p player-holding)
+              (pot-empty player-holding)))
           ;; otherwise, add what the player is holding to the
           ;; contents of the container
           (and (not (container? player-holding))
@@ -275,11 +271,11 @@ for counters."
                   (not (= player.placed-on.type "pot"))))) (do (set counter.placed-on player.placed-on)
                                                                (set player.placed-on nil))))
 
-;; FIXME: i can get something out of a pot on a plate when the pot has not finished cooking
+;; FIXME: it doesn't make sense for the pot to hold the "cooked state" as this is lost when the food is transferred to another container. i.e. if you take cooked soup out of a pot, put it in a plate, then put it back to the pot it appears as if the soup has uncooked itself.
 
-;; it is possible that the content-filters no longer make sense!
+;; instead what we can do is store the cooked information in the individual ingredients.
 
-;; do we want to have a content filter for incoming items and a content filter for outgoing items?
+;; each item in a pot can have a cooking time, when all the items have done their cooking time the overall meal is cooked. if all the ingredients in the pot have completed their cooking time, the cooking time continues to rise. if all the ingredients pass the burn/spoilt threshold, the overall meal is considered burnt/spoilt
 
 (lambda pot-create [x y]
   "Create the pot."
@@ -327,14 +323,8 @@ for counters."
      :contents []
      :content-limit math.huge
      :content-filter (fn [plate thing]
-                       (print "plate content filter")
-                       (print thing.type)
                        (when (= thing.type "pot")
                          (let [pot thing]
-                           (print (= (length pot.contents) 3))
-                           (print (> pot.cooking-time (pot-calculate-cooking-time pot)))
-                           (print (not pot.spoilt))
-                           (print (not (container-empty? plate)))
                            (and (= (length pot.contents) 3)
                                 (> pot.cooking-time (pot-calculate-cooking-time pot))
                                 (not pot.spoilt)))))
